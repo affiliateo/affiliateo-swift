@@ -15,7 +15,7 @@ final class AffiliateoClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        var body: [String: Any] = [
+        let body: [String: Any] = [
             "campaign_id": campaignId,
             "device_id": deviceId,
             "device_model": deviceInfo.deviceModel,
@@ -40,7 +40,7 @@ final class AffiliateoClient {
         return result
     }
 
-    /// Send a batch of events (session_start, session_end, screen_view).
+    /// Send a batch of session events (session_start, session_end).
     func sendEvents(campaignId: String, deviceId: String, events: [MobileEvent]) async throws {
         if events.isEmpty { return }
 
@@ -50,14 +50,10 @@ final class AffiliateoClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let eventsArray: [[String: Any]] = events.map { event in
-            var dict: [String: Any] = [
+            [
                 "type": event.type.rawValue,
                 "timestamp": event.timestamp,
             ]
-            if let screen = event.screen {
-                dict["screen"] = screen
-            }
-            return dict
         }
 
         let body: [String: Any] = [

@@ -29,19 +29,16 @@ public struct IdentifyResponse: Decodable {
 public enum EventType: String {
     case sessionStart = "session_start"
     case sessionEnd = "session_end"
-    case screenView = "screen_view"
 }
 
 /// A single event to send to the API.
 public struct MobileEvent {
     public let type: EventType
     public let timestamp: String
-    public let screen: String?
 
-    public init(type: EventType, screen: String? = nil) {
+    public init(type: EventType) {
         self.type = type
         self.timestamp = ISO8601DateFormatter().string(from: Date())
-        self.screen = screen
     }
 }
 
