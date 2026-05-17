@@ -50,10 +50,13 @@ final class AffiliateoClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let eventsArray: [[String: Any]] = events.map { event in
-            [
+            var dict: [String: Any] = [
                 "type": event.type.rawValue,
                 "timestamp": event.timestamp,
             ]
+            if let screen = event.screen { dict["screen"] = screen }
+            if let metadata = event.metadata { dict["metadata"] = metadata }
+            return dict
         }
 
         let body: [String: Any] = [

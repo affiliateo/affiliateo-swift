@@ -65,6 +65,11 @@ public final class AffiliateoManager: ObservableObject {
         visitorId: nil
     )
 
+    /// The most recently created manager. Used by the static `Affiliateo.page()`
+    /// and `Affiliateo.track()` helpers so merchants can fire events without
+    /// threading an `@EnvironmentObject` through every view.
+    public internal(set) static weak var shared: AffiliateoManager?
+
     private let campaignId: String
     private let client: AffiliateoClient
     private let deviceId: String
@@ -74,6 +79,7 @@ public final class AffiliateoManager: ObservableObject {
         self.campaignId = campaignId
         self.client = AffiliateoClient(apiUrl: apiUrl)
         self.deviceId = getStableDeviceId()
+        AffiliateoManager.shared = self
     }
 
     /// Start tracking. Called automatically by AffiliateoProvider.
@@ -81,12 +87,17 @@ public final class AffiliateoManager: ObservableObject {
         guard !started else { return }
         started = true
 
-        // Identify + session start
+        // Identify + auto-fire one screen_view so session_time has >= 2 timestamps.
         Task {
             await identify()
+            await sendScreenView(screen: "[Entry]", metadata: ["auto": true])
         }
 
-        // Listen for app going to background / foreground
+        // Listen for foreground/background. We deliberately fire a screen_view
+        // on background (overriding the older "server uses 10-min timeout"
+        // design) so the server has a real "last activity" timestamp close to
+        // when the user actually left — session_time would otherwise overshoot
+        // by up to 10 minutes per session.
         #if canImport(UIKit) && !os(watchOS)
         NotificationCenter.default.addObserver(
             self,
@@ -94,8 +105,42 @@ public final class AffiliateoManager: ObservableObject {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
-        // No background observer — server handles inactivity via 10-minute timeout
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
         #endif
+    }
+
+    /// Fire a screen_view event for a specific screen.
+    /// Call from `onAppear` in SwiftUI or `viewDidAppear` in UIKit.
+    public func page(_ screenName: String, metadata: [String: Any]? = nil) {
+        Task { await sendScreenView(screen: screenName, metadata: metadata) }
+    }
+
+    /// Fire a custom event with arbitrary name + metadata.
+    public func track(_ eventName: String, metadata: [String: Any]? = nil) {
+        var merged: [String: Any] = ["event": eventName]
+        if let metadata = metadata {
+            for (k, v) in metadata { merged[k] = v }
+        }
+        Task {
+            try? await client.sendEvents(
+                campaignId: campaignId,
+                deviceId: deviceId,
+                events: [MobileEvent(type: .custom, metadata: merged)]
+            )
+        }
+    }
+
+    private func sendScreenView(screen: String, metadata: [String: Any]? = nil) async {
+        try? await client.sendEvents(
+            campaignId: campaignId,
+            deviceId: deviceId,
+            events: [MobileEvent(type: .screenView, screen: screen, metadata: metadata)]
+        )
     }
 
     private func identify() async {
@@ -157,7 +202,30 @@ public final class AffiliateoManager: ObservableObject {
         }
     }
 
+    @objc private func appDidEnterBackground() {
+        Task {
+            await sendScreenView(screen: "[Background]", metadata: ["reason": "background"])
+        }
+    }
+
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+}
+
+// MARK: - Static helpers
+
+/// Top-level namespace for firing screen_view / custom events without
+/// threading `@EnvironmentObject var affiliateo: AffiliateoManager` through
+/// every view. No-op if `AffiliateoProvider` hasn't been mounted yet.
+public enum Affiliateo {
+    /// Fire a screen_view event. Call from `.onAppear` or `viewDidAppear`.
+    public static func page(_ screenName: String, metadata: [String: Any]? = nil) {
+        AffiliateoManager.shared?.page(screenName, metadata: metadata)
+    }
+
+    /// Fire a custom event with arbitrary name + metadata.
+    public static func track(_ eventName: String, metadata: [String: Any]? = nil) {
+        AffiliateoManager.shared?.track(eventName, metadata: metadata)
     }
 }

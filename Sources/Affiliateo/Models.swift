@@ -29,16 +29,25 @@ public struct IdentifyResponse: Decodable {
 public enum EventType: String {
     case sessionStart = "session_start"
     case sessionEnd = "session_end"
+    case screenView = "screen_view"
+    case custom = "custom"
 }
 
 /// A single event to send to the API.
+///
+/// `screen` is set for `screen_view` events (e.g. "Paywall"). `metadata` is an
+/// optional dictionary of additional context (e.g. `["plan": "pro"]`).
 public struct MobileEvent {
     public let type: EventType
     public let timestamp: String
+    public let screen: String?
+    public let metadata: [String: Any]?
 
-    public init(type: EventType) {
+    public init(type: EventType, screen: String? = nil, metadata: [String: Any]? = nil) {
         self.type = type
         self.timestamp = ISO8601DateFormatter().string(from: Date())
+        self.screen = screen
+        self.metadata = metadata
     }
 }
 
