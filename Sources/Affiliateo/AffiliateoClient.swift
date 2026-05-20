@@ -74,6 +74,34 @@ final class AffiliateoClient {
         }
     }
 
+    /// Link this anonymous device install to a merchant user_id. Required
+    /// for cross-device funnel stitching (phone + tablet + reinstall all
+    /// resolve to one person). Idempotent on the server. Best-effort: a
+    /// 4xx here means the visitor row hasn't been created yet (sign-in
+    /// fired before first /identify) and the next session will retry.
+    func identifyUser(campaignId: String, deviceId: String, userId: String, email: String? = nil) async throws {
+        let url = URL(string: "\(apiUrl)/api/v1/mobile/identify-user")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        var body: [String: Any] = [
+            "campaign_id": campaignId,
+            "device_id": deviceId,
+            "user_id": userId,
+        ]
+        if let email = email {
+            body["user_email"] = email
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw AffiliateoError.identifyFailed
+        }
+    }
+
     /// Bind a StoreKit 2 appAccountToken to this visitor on the server. After
     /// this returns, Apple notifications carrying this UUID in
     /// signedTransactionInfo.appAccountToken resolve to the same affiliate

@@ -135,6 +135,29 @@ public final class AffiliateoManager: ObservableObject {
         }
     }
 
+    /// Link this anonymous device install to a merchant user_id so the
+    /// funnel can stitch the same person across devices, reinstalls,
+    /// and the anonymous to logged-in handoff. Call once after sign-in.
+    /// Idempotent: safe to call on every app launch when a user is
+    /// signed in. Optional email is bounded to 320 chars (RFC 5321 max).
+    public func identify(_ userId: String, email: String? = nil) {
+        let cleanId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanId.isEmpty, cleanId.count <= 256 else { return }
+        let cleanEmail = email?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let validEmail: String? = {
+            guard let e = cleanEmail, e.count >= 3, e.count <= 320 else { return nil }
+            return e
+        }()
+        Task {
+            try? await client.identifyUser(
+                campaignId: campaignId,
+                deviceId: deviceId,
+                userId: cleanId,
+                email: validEmail
+            )
+        }
+    }
+
     private func sendScreenView(screen: String, metadata: [String: Any]? = nil) async {
         try? await client.sendEvents(
             campaignId: campaignId,
@@ -268,5 +291,11 @@ public enum Affiliateo {
     /// Fire a custom event with arbitrary name + metadata.
     public static func track(_ eventName: String, metadata: [String: Any]? = nil) {
         AffiliateoManager.shared?.track(eventName, metadata: metadata)
+    }
+
+    /// Link this anonymous device install to a merchant user_id.
+    /// See `AffiliateoManager.identify` for the full doc.
+    public static func identify(_ userId: String, email: String? = nil) {
+        AffiliateoManager.shared?.identify(userId, email: email)
     }
 }
