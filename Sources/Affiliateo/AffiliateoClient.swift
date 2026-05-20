@@ -76,23 +76,22 @@ final class AffiliateoClient {
 
     /// Link this anonymous device install to a merchant user_id. Required
     /// for cross-device funnel stitching (phone + tablet + reinstall all
-    /// resolve to one person). Idempotent on the server. Best-effort: a
-    /// 4xx here means the visitor row hasn't been created yet (sign-in
-    /// fired before first /identify) and the next session will retry.
-    func identifyUser(campaignId: String, deviceId: String, userId: String, email: String? = nil) async throws {
+    /// resolve to one person). user_id only. the SDK does NOT accept,
+    /// collect, or transmit email or any other PII. Idempotent on the
+    /// server. Best-effort: a 4xx here means the visitor row hasn't been
+    /// created yet (sign-in fired before first /identify) and the next
+    /// session will retry.
+    func identifyUser(campaignId: String, deviceId: String, userId: String) async throws {
         let url = URL(string: "\(apiUrl)/api/v1/mobile/identify-user")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        var body: [String: Any] = [
+        let body: [String: Any] = [
             "campaign_id": campaignId,
             "device_id": deviceId,
             "user_id": userId,
         ]
-        if let email = email {
-            body["user_email"] = email
-        }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
