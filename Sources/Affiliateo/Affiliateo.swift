@@ -83,32 +83,27 @@ public final class AffiliateoManager: ObservableObject {
     }
 
     /// Start tracking. Called automatically by AffiliateoProvider.
+    /// Runs identify (mints visitor + matches affiliate) and registers the
+    /// foreground keep-alive ping. Screens are NOT auto-tracked. the host
+    /// app calls Affiliateo.page(name) per screen, matching the Mixpanel /
+    /// Amplitude / Datafast mobile model.
     func start() {
         guard !started else { return }
         started = true
 
-        // Identify + auto-fire one screen_view so session_time has >= 2 timestamps.
         Task {
             await identify()
-            await sendScreenView(screen: "[Entry]", metadata: ["auto": true])
         }
 
-        // Listen for foreground/background. We deliberately fire a screen_view
-        // on background (overriding the older "server uses 10-min timeout"
-        // design) so the server has a real "last activity" timestamp close to
-        // when the user actually left — session_time would otherwise overshoot
-        // by up to 10 minutes per session.
+        // Keep the server-side session alive on foreground. The server's
+        // start_mobile_session RPC handles rotation based on the 10-minute
+        // inactivity timeout. No background screen_view. that was a ghost
+        // event that polluted funnels.
         #if canImport(UIKit) && !os(watchOS)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(appDidBecomeActive),
             name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appDidEnterBackground),
-            name: UIApplication.didEnterBackgroundNotification,
             object: nil
         )
         #endif
@@ -260,12 +255,6 @@ public final class AffiliateoManager: ObservableObject {
                 deviceId: deviceId,
                 events: [MobileEvent(type: .sessionStart)]
             )
-        }
-    }
-
-    @objc private func appDidEnterBackground() {
-        Task {
-            await sendScreenView(screen: "[Background]", metadata: ["reason": "background"])
         }
     }
 
