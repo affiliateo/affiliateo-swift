@@ -340,7 +340,7 @@ public final class AffiliateoManager: ObservableObject {
             // constraint).
             var appleToken: UUID? = nil
             if let refCode = result.refCode {
-                appleToken = Affiliateo.getOrMintAppleAccountToken(campaignId: campaignId, refCode: refCode)
+                appleToken = Self.getOrMintAppleAccountToken(campaignId: campaignId, refCode: refCode)
                 if let token = appleToken {
                     Task {
                         try? await client.registerAppleToken(
