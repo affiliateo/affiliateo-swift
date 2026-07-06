@@ -3,6 +3,9 @@ import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
+#if canImport(AdServices) && os(iOS)
+import AdServices
+#endif
 
 /// Main entry point for the Affiliateo SDK.
 /// Wrap your app with `AffiliateoProvider` to start tracking.
@@ -367,6 +370,12 @@ public final class AffiliateoManager: ObservableObject {
                 "ref": result.refCode as Any,
             ])
 
+            // Apple Search Ads attribution: grab the AdServices token for
+            // EVERY install (not just affiliate matches — most paid installs
+            // have no affiliate) so the backend can say which ASA keyword
+            // drove this install. No ATT prompt involved.
+            registerAdServicesAttribution(visitorId: result.visitorId)
+
             // Auto-set RevenueCat attribute if matched
             if let refCode = result.refCode {
                 setRevenueCatAttribute(refCode: refCode)
@@ -398,6 +407,30 @@ public final class AffiliateoManager: ObservableObject {
         let fresh = UUID()
         UserDefaults.standard.set(fresh.uuidString, forKey: key)
         return fresh
+    }
+
+    /// Grab Apple's AdServices attribution token (iOS 14.3+, package floor is
+    /// 15 so the framework always exists) and hand it to the backend, which
+    /// redeems it with Apple. Once per install: the sent flag persists in
+    /// UserDefaults, a failed send retries next launch. The token call is
+    /// documented as main-thread-unsafe work, so it runs detached at utility
+    /// priority. Returns nil on Simulator — silently skipped.
+    private func registerAdServicesAttribution(visitorId: String) {
+        #if canImport(AdServices) && os(iOS)
+        let flagKey = "affiliateo_asa_token_sent:\(campaignId)"
+        guard UserDefaults.standard.string(forKey: flagKey) == nil else { return }
+        let cid = campaignId
+        let client = self.client
+        Task.detached(priority: .utility) {
+            guard let token = try? AAAttribution.attributionToken() else { return }
+            do {
+                try await client.registerAppleAdsToken(campaignId: cid, visitorId: visitorId, token: token)
+                UserDefaults.standard.set("1", forKey: flagKey)
+            } catch {
+                // Next launch retries; the backend dedups by visitor.
+            }
+        }
+        #endif
     }
 
     private func setRevenueCatAttribute(refCode: String) {

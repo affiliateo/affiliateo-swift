@@ -129,4 +129,33 @@ final class AffiliateoClient {
             throw AffiliateoError.appleTokenRegisterFailed
         }
     }
+
+    /// Send Apple's AdServices attribution token to the backend, which
+    /// redeems it with Apple and stamps whether this install came from an
+    /// Apple Search Ads tap (and which campaign / ad group / keyword).
+    /// Fired once per install for EVERY install — most paid installs have
+    /// no affiliate, and "not from an ad" is itself the answer that turns
+    /// organic into a real number.
+    func registerAppleAdsToken(campaignId: String, visitorId: String, token: String) async throws {
+        let url = URL(string: "\(apiUrl)/api/v1/mobile/apple-ads-token")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "campaign_id": campaignId,
+            "visitor_id": visitorId,
+            "token": token,
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+        // 200 (already attributed) and 202 (accepted, redeeming in the
+        // background) both mean the token landed.
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 || httpResponse.statusCode == 202 else {
+            throw AffiliateoError.appleTokenRegisterFailed
+        }
+    }
 }
