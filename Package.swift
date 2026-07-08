@@ -1,9 +1,12 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.4.0
+// SDK version: 4.4.1
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.4.1: RevenueCat attributes now include affiliateo_visitor_id on every
+//        identify (not just affiliate-matched), so purchases link back to the
+//        tracked visitor (per-buyer spend, funnels, ad ROAS).
 // 4.4.0: version alignment — every Affiliateo SDK (web, React Native,
 // Swift, Kotlin, Flutter) now ships the same version number. Identical
 // source to 3.2.0.

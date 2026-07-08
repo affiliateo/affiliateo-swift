@@ -376,10 +376,12 @@ public final class AffiliateoManager: ObservableObject {
             // drove this install. No ATT prompt involved.
             registerAdServicesAttribution(visitorId: result.visitorId)
 
-            // Auto-set RevenueCat attribute if matched
-            if let refCode = result.refCode {
-                setRevenueCatAttribute(refCode: refCode)
-            }
+            // Auto-set RevenueCat subscriber attributes. The visitor id goes
+            // on EVERY identify (matched or organic): the webhook stamps it
+            // onto campaign_conversions.visitor_id, which powers the per-buyer
+            // Spent column, funnels journeys, and the ad ROAS/LTV joins. The
+            // ref code rides along only when the install matched an affiliate.
+            setRevenueCatAttributes(visitorId: result.visitorId, refCode: result.refCode)
         } catch {
             log("identify failed (network error)")
             await MainActor.run {
@@ -433,8 +435,8 @@ public final class AffiliateoManager: ObservableObject {
         #endif
     }
 
-    private func setRevenueCatAttribute(refCode: String) {
-        // Try to set RevenueCat attribute if the SDK is available
+    private func setRevenueCatAttributes(visitorId: String, refCode: String?) {
+        // Try to set RevenueCat attributes if the SDK is available
         // Uses dynamic lookup to avoid a hard dependency on RevenueCat
         guard let purchasesClass = NSClassFromString("RCPurchases") as? NSObject.Type else { return }
 
@@ -444,7 +446,12 @@ public final class AffiliateoManager: ObservableObject {
 
         let setAttrSelector = NSSelectorFromString("setAttributes:")
         if shared.responds(to: setAttrSelector) {
-            shared.perform(setAttrSelector, with: ["affiliateo_ref": refCode])
+            // affiliateo_visitor_id links RevenueCat webhook events back to
+            // this device's tracked visitor. Without it every conversion
+            // lands with visitor_id NULL and per-buyer analytics stay dark.
+            var attributes: [String: String] = ["affiliateo_visitor_id": visitorId]
+            if let refCode { attributes["affiliateo_ref"] = refCode }
+            shared.perform(setAttrSelector, with: attributes)
         }
     }
 
