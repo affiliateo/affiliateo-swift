@@ -22,7 +22,7 @@ import Affiliateo
 struct MyApp: App {
     var body: some Scene {
         WindowGroup {
-            AffiliateoProvider(campaignId: "YOUR_CAMPAIGN_ID") {
+            AffiliateoProvider(appId: "YOUR_APP_ID") {
                 ContentView()
             }
         }
@@ -46,7 +46,7 @@ struct ContentView: View {
 
 ## Track screens (manual)
 
-Screens are tracked when you call `Affiliateo.page(name)` per screen. This matches the Mixpanel / Amplitude / Datafast model. predictable, no ghost events polluting funnels.
+Screens are tracked when you call `Affiliateo.page(name)` per screen. This matches the Mixpanel / Amplitude model. predictable, no ghost events polluting funnels.
 
 ```swift
 struct HomeScreen: View {

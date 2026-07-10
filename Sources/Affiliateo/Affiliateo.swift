@@ -15,7 +15,7 @@ import AdServices
 /// struct MyApp: App {
 ///     var body: some Scene {
 ///         WindowGroup {
-///             AffiliateoProvider(campaignId: "YOUR_CAMPAIGN_ID") {
+///             AffiliateoProvider(appId: "YOUR_APP_ID") {
 ///                 ContentView()
 ///             }
 ///         }
@@ -23,12 +23,34 @@ import AdServices
 /// }
 /// ```
 public struct AffiliateoProvider<Content: View>: View {
-    let campaignId: String
+    let appId: String
     let apiUrl: String
     let content: () -> Content
 
     @StateObject private var manager: AffiliateoManager
 
+    public init(
+        appId: String,
+        apiUrl: String = "https://affiliateo.com",
+        debug: Bool = false,
+        flushIntervalSecs: TimeInterval = 5,
+        maxQueueSize: Int = 100,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.appId = appId
+        self.apiUrl = apiUrl
+        self.content = content
+        _manager = StateObject(wrappedValue: AffiliateoManager(
+            appId: appId,
+            apiUrl: apiUrl,
+            debug: debug,
+            flushIntervalSecs: flushIntervalSecs,
+            maxQueueSize: maxQueueSize
+        ))
+    }
+
+    /// Pre-4.5.0 spelling. Affiliateo campaigns are now called apps.
+    @available(*, deprecated, message: "Affiliateo campaigns are now apps — use init(appId:)")
     public init(
         campaignId: String,
         apiUrl: String = "https://affiliateo.com",
@@ -37,16 +59,14 @@ public struct AffiliateoProvider<Content: View>: View {
         maxQueueSize: Int = 100,
         @ViewBuilder content: @escaping () -> Content
     ) {
-        self.campaignId = campaignId
-        self.apiUrl = apiUrl
-        self.content = content
-        _manager = StateObject(wrappedValue: AffiliateoManager(
-            campaignId: campaignId,
+        self.init(
+            appId: campaignId,
             apiUrl: apiUrl,
             debug: debug,
             flushIntervalSecs: flushIntervalSecs,
-            maxQueueSize: maxQueueSize
-        ))
+            maxQueueSize: maxQueueSize,
+            content: content
+        )
     }
 
     public var body: some View {
@@ -109,13 +129,13 @@ public final class AffiliateoManager: ObservableObject {
     private let debug: Bool
 
     public init(
-        campaignId: String,
+        appId: String,
         apiUrl: String = "https://affiliateo.com",
         debug: Bool = false,
         flushIntervalSecs: TimeInterval = 5,
         maxQueueSize: Int = 100
     ) {
-        self.campaignId = campaignId
+        self.campaignId = appId
         self.apiUrl = apiUrl.hasSuffix("/") ? String(apiUrl.dropLast()) : apiUrl
         self.client = AffiliateoClient(apiUrl: apiUrl)
         self.deviceId = getStableDeviceId()
@@ -128,6 +148,24 @@ public final class AffiliateoManager: ObservableObject {
         self.isOptedOut = UserDefaults.standard.string(forKey: AffiliateoManager.optOutKey) == "true"
         self.debug = debug
         AffiliateoManager.shared = self
+    }
+
+    /// Pre-4.5.0 spelling. Affiliateo campaigns are now called apps.
+    @available(*, deprecated, message: "Affiliateo campaigns are now apps — use init(appId:)")
+    public convenience init(
+        campaignId: String,
+        apiUrl: String = "https://affiliateo.com",
+        debug: Bool = false,
+        flushIntervalSecs: TimeInterval = 5,
+        maxQueueSize: Int = 100
+    ) {
+        self.init(
+            appId: campaignId,
+            apiUrl: apiUrl,
+            debug: debug,
+            flushIntervalSecs: flushIntervalSecs,
+            maxQueueSize: maxQueueSize
+        )
     }
 
     /// Internal debug logger. No-op unless `debug: true` was passed to init.
@@ -147,7 +185,7 @@ public final class AffiliateoManager: ObservableObject {
     /// Runs identify (mints visitor + matches affiliate) and registers the
     /// foreground keep-alive ping. Screens are NOT auto-tracked. the host
     /// app calls Affiliateo.page(name) per screen, matching the Mixpanel /
-    /// Amplitude / Datafast mobile model.
+    /// Amplitude mobile model.
     func start() {
         guard !started else { return }
         started = true
@@ -169,7 +207,7 @@ public final class AffiliateoManager: ObservableObject {
             return
         }
 
-        log("init", ["campaign": campaignId, "device": deviceId])
+        log("init", ["app": campaignId, "device": deviceId])
         Task {
             await identify()
         }
@@ -544,7 +582,7 @@ public enum Affiliateo {
 ///       .trackedScreen("HomeScreen")
 ///
 /// Mirrors @affiliateo/react-native's useAffiliateoScreen hook and
-/// Datafast's useDataFastScreen hook. The metadata closure is fired
+/// the usual analytics screen hooks. The metadata closure is fired
 /// lazily so a screen that builds metadata from runtime state (a user
 /// tier, an A/B variant) doesn't pay the cost on every render.
 public extension View {
