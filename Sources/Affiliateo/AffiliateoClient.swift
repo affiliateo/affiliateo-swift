@@ -101,6 +101,44 @@ final class AffiliateoClient {
         }
     }
 
+    /// Report the host app's RevenueCat App User ID
+    /// (`Purchases.shared.appUserID`).
+    ///
+    /// Lets an app owner grant this affiliate complimentary access to the app
+    /// from their Affiliateo dashboard. Without it, Affiliateo can only match
+    /// an affiliate to a RevenueCat customer by email, which requires the host
+    /// app to be setting RevenueCat's `$email` attribute AND the affiliate to
+    /// have used the same address they used on Affiliateo.
+    ///
+    /// Deliberately separate from `identifyUser`: sign-in and RevenueCat
+    /// configuration happen at different moments, and an app may do one
+    /// without the other. The server accepts either field alone and writes
+    /// only what the request carried, so neither wipes the other.
+    ///
+    /// Write-once per device server-side. Re-sending the same id every launch
+    /// is a no-op; a DIFFERENT id for an already-bound device is rejected, so
+    /// a tampered client cannot repoint an established device at somebody
+    /// else's RevenueCat customer.
+    func identifyRevenueCatUser(campaignId: String, deviceId: String, revenueCatUserId: String) async throws {
+        let url = URL(string: "\(apiUrl)/api/v1/mobile/identify-user")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "campaign_id": campaignId,
+            "device_id": deviceId,
+            "revenuecat_user_id": revenueCatUserId,
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw AffiliateoError.identifyFailed
+        }
+    }
+
     /// Bind a StoreKit 2 appAccountToken to this visitor on the server. After
     /// this returns, Apple notifications carrying this UUID in
     /// signedTransactionInfo.appAccountToken resolve to the same affiliate

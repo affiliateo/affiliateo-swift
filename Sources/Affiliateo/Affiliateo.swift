@@ -360,6 +360,31 @@ public final class AffiliateoManager: ObservableObject {
         }
     }
 
+    /// Report the host app's RevenueCat App User ID
+    /// (`Purchases.shared.appUserID`). Call once after RevenueCat has
+    /// configured; safe to call on every launch.
+    ///
+    /// Lets an app owner grant this affiliate complimentary access to the app
+    /// from their Affiliateo dashboard. Separate from `identify` on purpose:
+    /// sign-in and RevenueCat configuration happen at different moments, and
+    /// an app may do one without the other.
+    ///
+    /// No email or other PII is sent, same as `identify`.
+    public func setRevenueCatUser(_ appUserId: String) {
+        let rcId = appUserId.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 255 matches the server. RevenueCat's anonymous form
+        // ($RCAnonymousID:<32 hex>) is already ~50 characters.
+        guard !rcId.isEmpty, rcId.count <= 255 else { return }
+        log("setRevenueCatUser", ["revenuecat_user_id": rcId])
+        Task {
+            try? await client.identifyRevenueCatUser(
+                campaignId: campaignId,
+                deviceId: deviceId,
+                revenueCatUserId: rcId
+            )
+        }
+    }
+
     private func identify() async {
         do {
             let deviceInfo = DeviceInfo.current()
@@ -543,6 +568,13 @@ public enum Affiliateo {
     /// the full doc.
     public static func identify(_ userId: String) {
         AffiliateoManager.shared?.identify(userId)
+    }
+
+    /// Report the host app's RevenueCat App User ID so an app owner can grant
+    /// this affiliate complimentary access from their Affiliateo dashboard.
+    /// See `AffiliateoManager.setRevenueCatUser` for the full doc.
+    public static func setRevenueCatUser(_ appUserId: String) {
+        AffiliateoManager.shared?.setRevenueCatUser(appUserId)
     }
 
     /// Wipe the device identity. Call on app logout when a different
