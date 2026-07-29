@@ -1,0 +1,46 @@
+name: Build
+
+# Compile the package on every push and pull request.
+#
+# Until now nothing ever checked that what landed here actually builds. The
+# SDK is authored on a Windows machine with no Swift toolchain, so a typo could
+# be tagged and published and the first person to find out would be a merchant
+# whose app suddenly won't compile. GitHub's macOS runners are free for public
+# repositories, so there is no reason for that to be true.
+#
+# Both platforms on purpose. `swift build` covers macOS, but most of this SDK
+# only matters on iOS and the UIKit paths (the didBecomeActive observer, the
+# IDFV device id) sit behind `#if canImport(UIKit)` — on a macOS-only build
+# those compile to nothing and a mistake inside them would sail straight
+# through. The iOS build is the one that actually reads them.
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Swift build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build (macOS)
+        run: swift build -v
+
+      - name: Build (iOS)
+        # generic/platform=iOS builds for the device SDK without needing a
+        # simulator to boot, which is both faster and less flaky than pinning
+        # a specific simulator name that Xcode may rename between versions.
+        run: |
+          xcodebuild build \
+            -scheme Affiliateo \
+            -destination 'generic/platform=iOS' \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO
