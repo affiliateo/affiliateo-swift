@@ -445,6 +445,10 @@ public final class AffiliateoManager: ObservableObject {
             // Spent column, funnels journeys, and the ad ROAS/LTV joins. The
             // ref code rides along only when the install matched an affiliate.
             setRevenueCatAttributes(visitorId: result.visitorId, refCode: result.refCode)
+
+            // …and read back which RevenueCat customer this device is, so the
+            // owner's Access switch has someone to grant to.
+            reportRevenueCatAppUserId()
         } catch {
             log("identify failed (network error)")
             await MainActor.run {
@@ -498,14 +502,33 @@ public final class AffiliateoManager: ObservableObject {
         #endif
     }
 
-    private func setRevenueCatAttributes(visitorId: String, refCode: String?) {
-        // Try to set RevenueCat attributes if the SDK is available
-        // Uses dynamic lookup to avoid a hard dependency on RevenueCat
-        guard let purchasesClass = NSClassFromString("RCPurchases") as? NSObject.Type else { return }
+    /// Set once we have successfully reached `Purchases.shared`. Gates the
+    /// foreground re-read below — see the warning on `revenueCatShared()`.
+    private var revenueCatReachable = false
 
+    /// RevenueCat's `Purchases.shared`, or nil when RevenueCat isn't in the
+    /// app at all (most apps). Dynamic lookup so we never take a hard
+    /// dependency on it.
+    ///
+    /// NOT safe before the host app has called `Purchases.configure`: `shared`
+    /// traps in that case, and RevenueCat exposes no probe for it that can be
+    /// read through `perform` (`isConfigured` returns a BOOL, and `perform` is
+    /// only defined for object returns). So the safety here is entirely about
+    /// WHEN this is called. Every caller runs after identify's network
+    /// round-trip, which the attributes call below has shipped on since 4.x
+    /// without incident, and `revenueCatReachable` keeps the foreground path
+    /// from reaching it any earlier than that on a cold launch.
+    private func revenueCatShared() -> AnyObject? {
+        guard let purchasesClass = NSClassFromString("RCPurchases") as? NSObject.Type else { return nil }
         let sharedSelector = NSSelectorFromString("sharedPurchases")
         guard purchasesClass.responds(to: sharedSelector),
-              let shared = purchasesClass.perform(sharedSelector)?.takeUnretainedValue() else { return }
+              let shared = purchasesClass.perform(sharedSelector)?.takeUnretainedValue() else { return nil }
+        revenueCatReachable = true
+        return shared
+    }
+
+    private func setRevenueCatAttributes(visitorId: String, refCode: String?) {
+        guard let shared = revenueCatShared() else { return }
 
         let setAttrSelector = NSSelectorFromString("setAttributes:")
         if shared.responds(to: setAttrSelector) {
@@ -518,8 +541,49 @@ public final class AffiliateoManager: ObservableObject {
         }
     }
 
+    /// Report WHICH RevenueCat customer this device is — the only thing that
+    /// lets an app owner grant this affiliate free access from their Affiliateo
+    /// dashboard.
+    ///
+    /// Read rather than waiting to be told. This shipped as a
+    /// `setRevenueCatUser()` call the merchant had to add themselves, and an
+    /// install step that gets skipped leaves the feature silently dead with
+    /// nothing to say why. RevenueCat is already running in the app.
+    ///
+    /// Safe to call repeatedly: an unchanged id is a no-op server-side. Called
+    /// on identify AND on foreground, because the first id we see is usually
+    /// RevenueCat's anonymous placeholder — it only becomes the real one when
+    /// the app calls `logIn`, which almost always happens after we started. The
+    /// server permits exactly one upgrade from that placeholder to a real id.
+    private func reportRevenueCatAppUserId() {
+        if isOptedOut { return }
+        guard let shared = revenueCatShared() else { return }
+
+        let appUserIdSelector = NSSelectorFromString("appUserID")
+        guard shared.responds(to: appUserIdSelector),
+              let raw = shared.perform(appUserIdSelector)?.takeUnretainedValue() as? String else { return }
+
+        let rcId = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 255 matches the server. RevenueCat's anonymous form
+        // ($RCAnonymousID:<32 hex>) is already ~50 characters.
+        guard !rcId.isEmpty, rcId.count <= 255 else { return }
+
+        log("setRevenueCatUser (auto)", ["revenuecat_user_id": rcId])
+        Task {
+            try? await client.identifyRevenueCatUser(
+                campaignId: campaignId,
+                deviceId: deviceId,
+                revenueCatUserId: rcId
+            )
+        }
+    }
+
     @objc private func appDidBecomeActive() {
         if isOptedOut { return }
+        // Re-read the RevenueCat id, but only once we know `shared` is safe to
+        // touch (see revenueCatShared()). Sign-in typically lands after our
+        // first read, swapping the anonymous placeholder for the real id.
+        if revenueCatReachable { reportRevenueCatAppUserId() }
         // Route through the queue so foreground pings survive a flaky
         // network the way regular page/track events do. The server's
         // start_mobile_session RPC is idempotent so a duplicate from a
