@@ -53,6 +53,8 @@ final class AffiliateoClient {
             var dict: [String: Any] = [
                 "type": event.type.rawValue,
                 "timestamp": event.timestamp,
+                // Stable across retries — see MobileEvent.eventId.
+                "event_id": event.eventId,
             ]
             if let screen = event.screen { dict["screen"] = screen }
             if let metadata = event.metadata { dict["metadata"] = metadata }

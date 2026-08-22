@@ -238,6 +238,10 @@ public final class AffiliateoManager: ObservableObject {
             "type": EventType.screenView.rawValue,
             "timestamp": ISO8601DateFormatter().string(from: Date()),
             "screen": screenName,
+            // Dedup key, stamped HERE rather than at send time so the queued
+            // payload carries one fixed id through every retry. The server
+            // keeps a unique index on it and drops replays.
+            "event_id": UUID().uuidString.lowercased(),
         ]
         if let metadata = metadata { event["metadata"] = metadata }
         queue.enqueue(
@@ -262,6 +266,10 @@ public final class AffiliateoManager: ObservableObject {
             "type": EventType.custom.rawValue,
             "timestamp": ISO8601DateFormatter().string(from: Date()),
             "metadata": merged,
+            // The event type where a duplicate actually costs something: a
+            // replayed custom event is a double-counted funnel conversion.
+            // Stamped at creation so every retry sends the same id.
+            "event_id": UUID().uuidString.lowercased(),
         ]
         queue.enqueue(
             endpoint: "\(apiUrl)/api/v1/mobile/event",
@@ -591,6 +599,10 @@ public final class AffiliateoManager: ObservableObject {
         let event: [String: Any] = [
             "type": EventType.sessionStart.rawValue,
             "timestamp": ISO8601DateFormatter().string(from: Date()),
+            // Belt and braces: the session RPC above already no-ops on a
+            // replay, but stamping every event keeps one rule to reason
+            // about rather than a per-type exception.
+            "event_id": UUID().uuidString.lowercased(),
         ]
         queue.enqueue(
             endpoint: "\(apiUrl)/api/v1/mobile/event",

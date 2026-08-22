@@ -42,12 +42,26 @@ public struct MobileEvent {
     public let timestamp: String
     public let screen: String?
     public let metadata: [String: Any]?
+    /// Dedup key, so the server can drop a replay of this exact event.
+    ///
+    /// Stamped here in `init` for the same reason `timestamp` is: a failed
+    /// send is queued and retried on the next launch, and the value has to
+    /// describe when the event HAPPENED rather than when it finally landed.
+    /// The id follows that guarantee — every retry of one event carries the
+    /// same id, so the server keeps exactly one row for it.
+    ///
+    /// Without it, a request that reaches the server and is written but whose
+    /// response is lost on a flaky connection gets resent and counted twice.
+    /// For a `custom` event that is a duplicated funnel conversion.
+    public let eventId: String
 
     public init(type: EventType, screen: String? = nil, metadata: [String: Any]? = nil) {
         self.type = type
         self.timestamp = ISO8601DateFormatter().string(from: Date())
         self.screen = screen
         self.metadata = metadata
+        // Lowercased to match the other SDKs; Foundation returns uppercase.
+        self.eventId = UUID().uuidString.lowercased()
     }
 }
 
