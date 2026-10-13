@@ -114,8 +114,17 @@ your app shows it and the person taps Allow, the SDK includes the advertising
 id, which makes the networks' matching much better. Without it, purchases are
 still reported, marked as not allowed, and the networks treat them by their
 privacy rules. On Meta, the people who decline are measured through the Meta
-SDK, so add it to your app too if you run Meta app campaigns (the SDK finds it
-and links the two on its own).
+SDK, so add it to your app too if you run Meta app campaigns, with its
+automatic purchase logging turned off (the SDK finds it and links the two on
+its own).
+
+**Send each network your sales one way only.** If your app also reports
+purchases to Meta, TikTok or Snapchat with that network's own SDK (Meta's SDK
+does it by itself while its automatic purchase logging is on), turn that
+purchase reporting off, or leave **Send app sales** off for that network.
+Otherwise the network counts every sale twice: it only matches two reports of
+one sale when both carry the same id, and its own SDK doesn't send the store's
+transaction id. Affiliateo's own two ways are matched on it and go out once.
 
 ## What it does
 
