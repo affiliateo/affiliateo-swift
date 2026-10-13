@@ -9,13 +9,13 @@ final class AffiliateoClient {
     }
 
     /// Identify this device to the Affiliateo API and get attribution info.
-    func identify(campaignId: String, deviceId: String, deviceInfo: DeviceInfo) async throws -> IdentifyResponse {
+    func identify(campaignId: String, deviceId: String, deviceInfo: DeviceInfo, adIdentifiers: AdIdentifiers) async throws -> IdentifyResponse {
         let url = URL(string: "\(apiUrl)/api/v1/mobile/identify")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "campaign_id": campaignId,
             "device_id": deviceId,
             "device_model": deviceInfo.deviceModel,
@@ -27,6 +27,8 @@ final class AffiliateoClient {
             "timezone": deviceInfo.timezone,
             "language": deviceInfo.language,
         ]
+        // Advertising ids (4.9.0): only what the person allowed, see AdIdentifiers.
+        for (key, value) in adIdentifiers.payload { body[key] = value }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

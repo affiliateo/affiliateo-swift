@@ -65,6 +65,14 @@ public struct MobileEvent {
     }
 }
 
+/// What a purchase reported with `Affiliateo.purchase` bought.
+public enum PurchaseKind: String {
+    /// The first payment of a subscription.
+    case subscription = "subscription"
+    /// A one-time purchase (lifetime access, a pack of credits).
+    case oneTime = "one_time"
+}
+
 /// Errors thrown by the SDK.
 public enum AffiliateoError: Error, LocalizedError {
     case identifyFailed

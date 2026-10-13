@@ -1,9 +1,17 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.7.0
+// SDK version: 4.9.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.9.0: app sales to the ad networks. Affiliateo.purchase(...) reports a
+//   purchase from the paywall (plus a StoreKit 2 overload), and identify now
+//   carries the advertising ids the person allowed: the IDFA only after
+//   "Allow" on the app's own tracking prompt (the SDK never prompts), the
+//   tracking answer itself, the Meta SDK's anonymous id when the app ships
+//   it, and the bundle id. A changed tracking answer is sent when the app
+//   comes back to the front. Additive, no API changes.
+// 4.8.0: a dedup key on every event, so a retry cannot double-count.
 // 4.7.0: the SDK now READS the RevenueCat App User ID itself (on identify and
 //   on foreground) instead of waiting for the host app to call
 //   setRevenueCatUser. That call remains for apps that want to control the

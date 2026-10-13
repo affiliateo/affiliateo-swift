@@ -70,6 +70,53 @@ Button("Continue") {
 }
 ```
 
+## Report purchases to your ad networks
+
+When you run app campaigns on Meta, TikTok or Snapchat through Affiliateo,
+Affiliateo tells those networks each time somebody FIRST pays (a
+subscription's first charge, or a one-time purchase), so the campaigns learn
+who pays rather than who installs. Set it up in Affiliateo: your ad network's
+settings, **Send app sales**, then paste the network's id for your app.
+
+There are two ways a payment reaches Affiliateo, and you can use either or
+both. Affiliateo sends each payment once.
+
+1. **Your payment provider (nothing to add here).** If RevenueCat, Apple
+   In-App Purchase or Adapty is connected to your app in Affiliateo, first
+   payments are reported on their own.
+2. **One line on your paywall.** Right after a purchase succeeds:
+
+```swift
+// RevenueCat
+let result = try await Purchases.shared.purchase(package: package)
+if !result.userCancelled, let transaction = result.transaction {
+    Affiliateo.purchase(
+        transactionId: transaction.transactionIdentifier,
+        productId: transaction.productIdentifier,
+        price: package.storeProduct.price,
+        currency: package.storeProduct.currencyCode ?? "USD"
+    )
+}
+
+// StoreKit 2
+if case .success(.verified(let transaction)) = try await product.purchase() {
+    Affiliateo.purchase(transaction)
+    await transaction.finish()
+}
+```
+
+The paywall line is quicker and carries the phone's network address, which
+the networks match on. It records no sale and moves no money: revenue and
+commissions still come only from your payment provider.
+
+**Tracking permission.** The SDK never shows the "Allow tracking?" prompt. If
+your app shows it and the person taps Allow, the SDK includes the advertising
+id, which makes the networks' matching much better. Without it, purchases are
+still reported, marked as not allowed, and the networks treat them by their
+privacy rules. On Meta, the people who decline are measured through the Meta
+SDK, so add it to your app too if you run Meta app campaigns (the SDK finds it
+and links the two on its own).
+
 ## What it does
 
 - **Identifies the device** using Apple's built-in IDFV (no permissions needed)

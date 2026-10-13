@@ -6,6 +6,9 @@ import UIKit
 #if canImport(AdServices) && os(iOS)
 import AdServices
 #endif
+#if canImport(StoreKit)
+import StoreKit
+#endif
 
 /// Main entry point for the Affiliateo SDK.
 /// Wrap your app with `AffiliateoProvider` to start tracking.
@@ -396,11 +399,14 @@ public final class AffiliateoManager: ObservableObject {
     private func identify() async {
         do {
             let deviceInfo = DeviceInfo.current()
+            let adIdentifiers = AdIdentifiers.current()
             let result = try await client.identify(
                 campaignId: campaignId,
                 deviceId: deviceId,
-                deviceInfo: deviceInfo
+                deviceInfo: deviceInfo,
+                adIdentifiers: adIdentifiers
             )
+            lastSentTracking = .some(adIdentifiers.trackingAllowed)
 
             // Apple native IAP attribution. Mint a stable UUID per
             // (campaignId, refCode) so the customer's purchase chain (initial
@@ -586,12 +592,69 @@ public final class AffiliateoManager: ObservableObject {
         }
     }
 
+    /// What the last identify (or ad-ids call) told the server about tracking
+    /// permission. `nil` until identify has succeeded once; `.some(nil)` means
+    /// "sent, and the app had not asked yet".
+    private var lastSentTracking: Bool?? = nil
+
+    /// The tracking prompt is answered while the app is in the BACKGROUND as
+    /// far as iOS is concerned (the system alert resigns it), so coming back to
+    /// the front is the moment to notice. Only a changed answer is sent: a
+    /// person who taps Allow during onboarding and pays a minute later has
+    /// their payment reported with the id they just allowed.
+    private func reportAdIdentifiersIfChanged() {
+        guard let last = lastSentTracking else { return }
+        let ids = AdIdentifiers.current()
+        guard last != ids.trackingAllowed else { return }
+        lastSentTracking = .some(ids.trackingAllowed)
+        log("ad ids changed", ["tracking_allowed": ids.trackingAllowed as Any])
+        var payload: [String: Any] = ["campaign_id": campaignId, "device_id": deviceId]
+        for (key, value) in ids.payload { payload[key] = value }
+        queue.enqueue(endpoint: "\(apiUrl)/api/v1/mobile/ad-ids", payload: payload)
+    }
+
+    /// Report one purchase to the app's ad networks, from the paywall, right
+    /// after it succeeds. See `Affiliateo.purchase` for the full doc.
+    public func purchase(
+        transactionId: String,
+        productId: String,
+        price: Decimal,
+        currency: String,
+        kind: PurchaseKind = .subscription
+    ) {
+        if isOptedOut { return }
+        let txId = transactionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !txId.isEmpty, txId.count <= 200 else { return }
+        let code = currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard code.count == 3 else { return }
+        log("purchase", ["transaction": txId, "product": productId, "price": price, "currency": code])
+        var payload: [String: Any] = [
+            "campaign_id": campaignId,
+            "device_id": deviceId,
+            "transaction_id": txId,
+            "product_id": productId,
+            // A string, so a Decimal never turns into 59.989999999999995.
+            "price": NSDecimalNumber(decimal: price).stringValue,
+            "currency": code,
+            "kind": kind.rawValue,
+            "platform": "ios",
+        ]
+        // The ids as they are NOW: the prompt is often answered moments before
+        // the paywall, after this launch's identify.
+        for (key, value) in AdIdentifiers.current().payload { payload[key] = value }
+        queue.enqueue(endpoint: "\(apiUrl)/api/v1/mobile/purchase", payload: payload)
+        // The paywall is often the last screen before the person leaves; do
+        // not wait for the timer.
+        Task { await queue.flush() }
+    }
+
     @objc private func appDidBecomeActive() {
         if isOptedOut { return }
         // Re-read the RevenueCat id, but only once we know `shared` is safe to
         // touch (see revenueCatShared()). Sign-in typically lands after our
         // first read, swapping the anonymous placeholder for the real id.
         if revenueCatReachable { reportRevenueCatAppUserId() }
+        reportAdIdentifiersIfChanged()
         // Route through the queue so foreground pings survive a flaky
         // network the way regular page/track events do. The server's
         // start_mobile_session RPC is idempotent so a duplicate from a
@@ -677,6 +740,79 @@ public enum Affiliateo {
     public static func flush() async {
         await AffiliateoManager.shared?.flush()
     }
+
+    /// Report a purchase to the ad networks this app sends its sales to.
+    /// Call it on your paywall, right after a purchase succeeds.
+    ///
+    /// ```swift
+    /// // RevenueCat
+    /// let result = try await Purchases.shared.purchase(package: package)
+    /// if !result.userCancelled, let transaction = result.transaction {
+    ///     Affiliateo.purchase(
+    ///         transactionId: transaction.transactionIdentifier,
+    ///         productId: transaction.productIdentifier,
+    ///         price: package.storeProduct.price,
+    ///         currency: package.storeProduct.currencyCode ?? "USD"
+    ///     )
+    /// }
+    /// ```
+    ///
+    /// - `transactionId`: the App Store's id for this payment. Affiliateo keys
+    ///   the report on it, so a payment your payment provider ALSO reports
+    ///   (RevenueCat, Apple, Adapty connected in Affiliateo) goes to each
+    ///   network once.
+    /// - `price` and `currency`: what the person paid, in normal units (59.99).
+    /// - `kind`: `.subscription` (the default) or `.oneTime`.
+    ///
+    /// Optional when a payment provider is connected to the app in Affiliateo:
+    /// first payments are then reported without it. What this call adds is
+    /// speed and the phone's own network address, which the networks match
+    /// on. Nothing here records a sale or moves money.
+    public static func purchase(
+        transactionId: String,
+        productId: String,
+        price: Decimal,
+        currency: String,
+        kind: PurchaseKind = .subscription
+    ) {
+        AffiliateoManager.shared?.purchase(
+            transactionId: transactionId,
+            productId: productId,
+            price: price,
+            currency: currency,
+            kind: kind
+        )
+    }
+
+    #if canImport(StoreKit)
+    /// The same, straight from a StoreKit 2 transaction, for apps that sell
+    /// without RevenueCat:
+    ///
+    /// ```swift
+    /// if case .success(.verified(let transaction)) = try await product.purchase() {
+    ///     Affiliateo.purchase(transaction)
+    ///     await transaction.finish()
+    /// }
+    /// ```
+    @available(iOS 15.0, macOS 12.0, *)
+    public static func purchase(_ transaction: StoreKit.Transaction) {
+        guard let price = transaction.price else { return }
+        let currency: String?
+        if #available(iOS 16.0, macOS 13.0, *) {
+            currency = transaction.currency?.identifier
+        } else {
+            currency = transaction.currencyCode
+        }
+        guard let currency else { return }
+        purchase(
+            transactionId: String(transaction.id),
+            productId: transaction.productID,
+            price: price,
+            currency: currency,
+            kind: transaction.productType == .autoRenewable ? .subscription : .oneTime
+        )
+    }
+    #endif
 }
 
 // MARK: - SwiftUI screen helper
