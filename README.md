@@ -111,12 +111,13 @@ commissions still come only from your payment provider.
 
 **Tracking permission.** The SDK never shows the "Allow tracking?" prompt. If
 your app shows it and the person taps Allow, the SDK includes the advertising
-id, which makes the networks' matching much better. Without it, purchases are
-still reported, marked as not allowed, and the networks treat them by their
-privacy rules. On Meta, the people who decline are measured through the Meta
-SDK, so add it to your app too if you run Meta app campaigns, with its
-automatic purchase logging turned off (the SDK finds it and links the two on
-its own).
+id, which makes the networks' matching much better. Without that Allow
+(declined, or never asked), Affiliateo does not pass the purchase on to the ad
+networks: Apple counts handing an ad network the phone's details as tracking.
+The purchase still counts as revenue in Affiliateo. Meta's own SDK can measure
+those iPhone buyers in Meta's limited mode; if you want that, report Meta's
+sales with the Meta SDK and leave **Send app sales** off for Meta (one way per
+network, below).
 
 **Send each network your sales one way only.** If your app also reports
 purchases to Meta, TikTok or Snapchat with that network's own SDK (Meta's SDK
