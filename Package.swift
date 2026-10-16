@@ -1,9 +1,14 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.9.0
+// SDK version: 4.10.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.10.0: every user gets the purchase tag (the Affiliateo visitor id), so
+//   sales from people who did not come through an affiliate are tied to their
+//   phone too. state.appAccountToken is now the visitor id for every device
+//   (it was only set for affiliate matches, from a per-affiliate token the SDK
+//   minted and registered). Same name, no code changes in the app.
 // 4.9.0: app sales to the ad networks. Affiliateo.purchase(...) reports a
 //   purchase from the paywall (plus a StoreKit 2 overload), and identify now
 //   carries the advertising ids the person allowed: the IDFA only after

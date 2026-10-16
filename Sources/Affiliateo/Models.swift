@@ -94,9 +94,12 @@ public struct AffiliateoState {
     public let isMatched: Bool
     public let isLoading: Bool
     public let visitorId: String?
-    /// StoreKit 2 appAccountToken UUID. Pass this to your StoreKit 2 purchase
-    /// call so Apple stamps it onto the transaction and our webhook can
-    /// resolve it back to the affiliate.
+    /// StoreKit 2 appAccountToken UUID: the Affiliateo visitor id of this
+    /// device. Every user gets one, whether or not they came through an
+    /// affiliate. Always pass it to your StoreKit 2 purchase call, so Apple
+    /// stamps it onto the transaction and Affiliateo ties the sale (and every
+    /// renewal and refund after it) to this phone, and to the affiliate when
+    /// there is one.
     ///
     /// ```swift
     /// let token = affiliateo.state.appAccountToken
@@ -104,8 +107,8 @@ public struct AffiliateoState {
     /// let result = try await product.purchase(options: opts)
     /// ```
     ///
-    /// Nil before identify completes, when the device isn't matched to any
-    /// affiliate, or on platforms other than iOS / macCatalyst.
+    /// Nil before identify succeeds (so also when the SDK starts opted out)
+    /// and after `reset()`.
     public let appAccountToken: UUID?
 
     public init(

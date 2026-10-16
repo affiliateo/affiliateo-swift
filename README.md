@@ -70,6 +70,23 @@ Button("Continue") {
 }
 ```
 
+## Tag every purchase
+
+`affiliateo.state.appAccountToken` is the purchase tag for this phone (its
+Affiliateo visitor id). Every user gets one, whether or not they came through
+an affiliate, so always pass it to the purchase call. Apple stamps it onto the
+sale and on every renewal and refund after it, and Affiliateo ties each one to
+this phone, and to the affiliate when there is one.
+
+```swift
+// StoreKit 2
+let token = affiliateo.state.appAccountToken
+let options: Set<Product.PurchaseOption> = token.map { [.appAccountToken($0)] } ?? []
+let result = try await product.purchase(options: options)
+```
+
+It is nil only until the SDK's first identify succeeds (and after `reset()`).
+
 ## Report purchases to your ad networks
 
 When you run app campaigns on Meta, TikTok or Snapchat through Affiliateo,
@@ -145,7 +162,7 @@ transaction id. Affiliateo's own two ways are matched on it and go out once.
 - **Tracks sessions** automatically (app foreground)
 - **Matches affiliate referrals** via fingerprint matching
 - **Sets RevenueCat attributes** automatically if RevenueCat is installed
-- **IAP attribution** via StoreKit 2 `appAccountToken`
+- **IAP attribution** via StoreKit 2 `appAccountToken`, for every user (see Tag every purchase)
 
 ## Giving affiliates free access
 

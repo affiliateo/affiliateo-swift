@@ -408,29 +408,17 @@ public final class AffiliateoManager: ObservableObject {
             )
             lastSentTracking = .some(adIdentifiers.trackingAllowed)
 
-            // Apple native IAP attribution. Mint a stable UUID per
-            // (campaignId, refCode) so the customer's purchase chain (initial
-            // buy + every renewal + refund) all carry the same token Apple
-            // stamped at first purchase. Customer's purchase code reads it
+            // Apple native IAP attribution (4.10.0). The purchase tag is the
+            // visitor id itself, for EVERY device, matched or organic: Apple
+            // needs a UUID and the visitor id is one (v4). The app reads it
             // via state.appAccountToken and passes it as
-            // .appAccountToken(uuid) to StoreKit 2's product.purchase(options:).
-            //
-            // Best-effort: registration failure here means the next launch
-            // retries (the backend dedups via mobile_app_visitors unique
-            // constraint).
-            var appleToken: UUID? = nil
-            if let refCode = result.refCode {
-                appleToken = Self.getOrMintAppleAccountToken(campaignId: campaignId, refCode: refCode)
-                if let token = appleToken {
-                    Task {
-                        try? await client.registerAppleToken(
-                            campaignId: campaignId,
-                            visitorId: result.visitorId,
-                            token: token
-                        )
-                    }
-                }
-            }
+            // .appAccountToken(uuid) to StoreKit 2's product.purchase(options:),
+            // Apple stamps it onto the whole purchase chain (first buy, every
+            // renewal, refund), and the server matches it to this visitor
+            // directly, so nothing is registered from here. Tokens minted per
+            // affiliate before 4.10.0 keep working server side, and a chain
+            // bought with one keeps carrying it.
+            let appleToken = UUID(uuidString: result.visitorId)
 
             await MainActor.run {
                 self.state = AffiliateoState(
@@ -475,21 +463,6 @@ public final class AffiliateoManager: ObservableObject {
                 )
             }
         }
-    }
-
-    /// Get or mint a stable StoreKit 2 appAccountToken for this affiliate match.
-    /// Persisted in UserDefaults keyed by (campaignId, refCode) so the same UUID
-    /// is reused across app launches for the same affiliate (binding the whole
-    /// purchase chain to one affiliate).
-    private static func getOrMintAppleAccountToken(campaignId: String, refCode: String) -> UUID {
-        let key = "affiliateo_apple_token:\(campaignId):\(refCode)"
-        if let existing = UserDefaults.standard.string(forKey: key),
-           let uuid = UUID(uuidString: existing) {
-            return uuid
-        }
-        let fresh = UUID()
-        UserDefaults.standard.set(fresh.uuidString, forKey: key)
-        return fresh
     }
 
     /// Grab Apple's AdServices attribution token (iOS 14.3+, package floor is
