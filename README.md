@@ -70,6 +70,43 @@ Button("Continue") {
 }
 ```
 
+## Sign-in and sign-out
+
+Say who is signed in after sign-in (and on launch while someone is), and call
+`logout()` on sign-out:
+
+```swift
+// after sign-in
+Affiliateo.identify(user.id)
+
+// on sign-out
+Affiliateo.logout()
+```
+
+The same person then counts as one customer across their devices. After
+`logout()` the phone counts as a new anonymous customer, so whoever signs in
+next (or nobody) isn't counted as the person who just left; everything already
+recorded stays with them. Tracking carries on as before: same device, same
+visitor id, same `appAccountToken`, no relaunch needed. If a different user
+signs in without a sign-out in between, the phone switches to them on its own.
+
+The SDK remembers the signed-in id and sends it again once per launch. Ids that
+mean "nobody" (`"null"`, `"guest"`, `"0"`, an empty string, RevenueCat's
+`$RCAnonymousID:...`, anything over 128 characters) are skipped, and nothing is
+sent while the person has opted out. **user_id only:** no email or other PII.
+
+### What changed in 4.11.0
+
+- New `logout()`, for sign-out (see above).
+- `reset()` is now the same as `logout()`. It used to try to give the phone a
+  new device id, which iOS doesn't allow, and left `appAccountToken` nil until
+  the app relaunched.
+- `identify()` does nothing while opted out (it used to send anyway), stores
+  the id, re-sends it once per launch, retries a sign-in that raced ahead of
+  the first launch call, and skips placeholder ids.
+- A different user signing in on the same phone now switches it to them. It
+  used to be refused, so a shared phone stayed its first user forever.
+
 ## Tag every purchase
 
 `affiliateo.state.appAccountToken` is the purchase tag for this phone (its
@@ -85,7 +122,7 @@ let options: Set<Product.PurchaseOption> = token.map { [.appAccountToken($0)] } 
 let result = try await product.purchase(options: options)
 ```
 
-It is nil only until the SDK's first identify succeeds (and after `reset()`).
+It is nil only until the SDK's first identify succeeds. Signing out keeps it.
 
 ## Report purchases to your ad networks
 

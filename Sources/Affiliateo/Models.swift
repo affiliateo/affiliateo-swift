@@ -73,6 +73,22 @@ public enum PurchaseKind: String {
     case oneTime = "one_time"
 }
 
+/// What /api/v1/mobile/identify-user answered (4.11.0). See
+/// `AffiliateoClient.identifyUser`.
+enum IdentifyUserResult {
+    /// The server has it. `outcome` is "same", "adopted", "merged" or
+    /// "switched".
+    case linked(outcome: String?)
+    /// The device is not known yet; send again after the first identify.
+    case notLinked
+    /// A 400: not an id a sign-in gives. Not retried.
+    case refused
+}
+
+/// The logout call did not land. Internal on purpose: a new case on the
+/// public `AffiliateoError` would break apps that switch over it exhaustively.
+struct AffiliateoLogoutFailed: Error {}
+
 /// Errors thrown by the SDK.
 public enum AffiliateoError: Error, LocalizedError {
     case identifyFailed
@@ -107,8 +123,9 @@ public struct AffiliateoState {
     /// let result = try await product.purchase(options: opts)
     /// ```
     ///
-    /// Nil before identify succeeds (so also when the SDK starts opted out)
-    /// and after `reset()`.
+    /// Nil before identify succeeds (so also when the SDK starts opted out).
+    /// Since 4.11.0 `logout()` and `reset()` keep it: the device and its
+    /// visitor id stay the same, only who it counts as changes.
     public let appAccountToken: UUID?
 
     public init(

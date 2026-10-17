@@ -112,11 +112,17 @@ public final class AffiliateoManager: ObservableObject {
     // `@objc dynamic var` form isn't needed here because we only ever
     // read/write through the SDK's own methods.
     private static let optOutKey = "affiliateo_opt_out"
+    // Who is signed in (4.11.0), kept so the SDK can re-send it once per
+    // launch, and a sign-out the server has not heard yet. Same plain-key
+    // style as the opt-out flag, and the same names as the React Native SDK.
+    private static let userIdKey = "affiliateo_user_id"
+    private static let logoutPendingKey = "affiliateo_logout_pending"
 
     private let campaignId: String
     private let apiUrl: String
     private let client: AffiliateoClient
-    private var deviceId: String
+    // Never changes for the life of the install: logout() and reset() keep it.
+    private let deviceId: String
     private let queue: EventQueue
     private var started = false
     // In-memory mirror of the on-disk opt-out flag. Hot-path check
@@ -130,6 +136,21 @@ public final class AffiliateoManager: ObservableObject {
     // don't leak SDK internals to anyone running their app under a
     // debugger. Mirrors @affiliateo/web and @affiliateo/react-native.
     private let debug: Bool
+
+    // Sign-in state (4.11.0). Read and written on the main actor only, so
+    // identify / logout / the launch re-send never race each other.
+    /// The signed-in user id, mirrored in UserDefaults.
+    private var userId: String?
+    /// The user the server confirmed (linked) this launch: identify with the
+    /// same id sends nothing.
+    private var syncedUser: String?
+    /// The user id whose identify-user call is on its way.
+    private var userInFlight: String?
+    /// This launch's first /api/v1/mobile/identify succeeded, so the server
+    /// knows the device and a sign-in can link to it.
+    private var firstOpenDone = false
+    /// A logout call on its way; a sign-in waits for it.
+    private var logoutTask: Task<Void, Never>?
 
     public init(
         appId: String,
@@ -150,6 +171,7 @@ public final class AffiliateoManager: ObservableObject {
         )
         self.isOptedOut = UserDefaults.standard.string(forKey: AffiliateoManager.optOutKey) == "true"
         self.debug = debug
+        self.userId = AffiliateoUserId.usable(UserDefaults.standard.string(forKey: AffiliateoManager.userIdKey))
         AffiliateoManager.shared = self
     }
 
@@ -284,37 +306,34 @@ public final class AffiliateoManager: ObservableObject {
         )
     }
 
-    /// Wipe the device identity. Drains pending events first (they land
-    /// server-side under the OLD device_id which is correct), then clears
-    /// the queue, regenerates the device_id, and resets state. Call on
-    /// app logout when a different user might sign in afterwards
-    /// (shared family iPad, kiosk app). Without this, the next user's
-    /// actions get merged into the previous user's funnel.
-    public func reset() {
-        log("reset")
-        Task {
-            await queue.flush()
-            queue.clear()
-            // Reset the on-disk device_id cache so getStableDeviceId
-            // mints a fresh one. The platform IDFV is tied to the
-            // bundle and we can't change it; only the UUID fallback
-            // (when IDFV unavailable) gets fresh entropy.
-            // Key must match the one DeviceId.swift writes to. Earlier
-            // versions used "affiliateo_device_id_fallback" here which
-            // was a no-op since DeviceId.swift actually stores under
-            // "com.affiliateo.device_id".
-            UserDefaults.standard.removeObject(forKey: "com.affiliateo.device_id")
-            self.deviceId = getStableDeviceId()
-            await MainActor.run {
-                self.state = AffiliateoState(
-                    refCode: nil,
-                    isMatched: false,
-                    isLoading: false,
-                    visitorId: nil,
-                    appAccountToken: nil
-                )
-            }
+    /// The user signed out (4.11.0). Call it on sign-out: this device starts
+    /// over as a new anonymous customer of the app, so whoever signs in next
+    /// (or nobody) is not counted as the person who just left, and
+    /// everything already recorded stays with them. Forgets the stored user
+    /// id.
+    ///
+    /// Tracking carries on: same device id, same visitor id, same
+    /// `appAccountToken`, nothing to relaunch. A sign-out made offline (or
+    /// while opted out) is sent after the next launch's identify.
+    public func logout() {
+        log("logout requested")
+        Task { @MainActor in
+            self.userId = nil
+            self.syncedUser = nil
+            UserDefaults.standard.removeObject(forKey: AffiliateoManager.userIdKey)
+            UserDefaults.standard.set("true", forKey: AffiliateoManager.logoutPendingKey)
+            await self.sendLogout()
         }
+    }
+
+    /// The same as `logout()` since 4.11.0.
+    ///
+    /// It used to try to mint a new device id (impossible: the IDFV belongs to
+    /// the app's vendor) and cleared the state, which left `appAccountToken`
+    /// nil until the app relaunched. Kept so existing apps keep compiling and
+    /// now get the sign-out they meant.
+    public func reset() {
+        logout()
     }
 
     /// Stop tracking on this device. Sets the persistent opt-out flag
@@ -350,24 +369,118 @@ public final class AffiliateoManager: ObservableObject {
         await queue.flush()
     }
 
-    /// Link this anonymous device install to a merchant user_id so the
-    /// funnel can stitch the same person across devices, reinstalls,
-    /// and the anonymous to logged-in handoff. Call once after sign-in.
-    /// Idempotent: safe to call on every app launch when a user is
-    /// signed in.
+    /// Say who is signed in. Call after sign-in, and on launch while someone
+    /// is signed in. The same person then counts as ONE customer across
+    /// devices, reinstalls, and the anonymous to signed-in handoff. A
+    /// different user signing in on this device switches it to them (since
+    /// 4.11.0; it used to be refused).
+    ///
+    /// The SDK stores the id and re-sends it once per launch. A sign-in that
+    /// raced ahead of the launch's first identify is sent again right after
+    /// it. Does nothing while opted out, and skips ids that mean "nobody"
+    /// ("null", "undefined", "guest", "0", RevenueCat's $RCAnonymousID:...).
     ///
     /// user_id only. the SDK does NOT accept, collect, or transmit
     /// email or any other PII.
     public func identify(_ userId: String) {
-        let cleanId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanId.isEmpty, cleanId.count <= 128 else { return }
-        log("identify (user)", ["user_id": cleanId])
-        Task {
-            try? await client.identifyUser(
-                campaignId: campaignId,
-                deviceId: deviceId,
-                userId: cleanId
-            )
+        if isOptedOut {
+            log("identify skipped: opted out")
+            return
+        }
+        guard let uid = AffiliateoUserId.usable(userId) else {
+            log("identify skipped: not a user id (empty, over 128 characters, or a placeholder like \"null\", \"guest\" or \"0\")", ["user_id": userId])
+            return
+        }
+        Task { @MainActor in
+            if self.userId != uid {
+                self.userId = uid
+                UserDefaults.standard.set(uid, forKey: AffiliateoManager.userIdKey)
+            }
+            // A sign-in replaces a sign-out that never reached the server: a
+            // different person signing in switches the device anyway.
+            UserDefaults.standard.removeObject(forKey: AffiliateoManager.logoutPendingKey)
+            // Already confirmed this launch: nothing to send.
+            if self.syncedUser == uid { return }
+            await self.sendIdentifyUser(uid)
+        }
+    }
+
+    /// POST /api/v1/mobile/identify-user for the signed-in user. A 400 is not
+    /// retried (and the stored id is forgotten); a network or server error
+    /// leaves it stored for the next launch; `.notLinked` is sent once more
+    /// when this launch's first identify finished while it was on its way.
+    @MainActor
+    private func sendIdentifyUser(_ uid: String) async {
+        // Already on its way: that call's answer decides what happens next.
+        if userInFlight == uid { return }
+        userInFlight = uid
+        defer { if userInFlight == uid { userInFlight = nil } }
+        for _ in 0..<2 {
+            // A sign-out still on its way lands first, so it cannot undo this.
+            if let pending = logoutTask { await pending.value }
+            guard !isOptedOut, userId == uid else { return }
+            let beforeFirstOpen = !firstOpenDone
+            let result: IdentifyUserResult
+            do {
+                result = try await client.identifyUser(campaignId: campaignId, deviceId: deviceId, userId: uid)
+            } catch {
+                log("identify failed (network), sent again next launch", ["user_id": uid])
+                return
+            }
+            // Signed out, or somebody else signed in, while this was in flight.
+            guard userId == uid else { return }
+            switch result {
+            case .linked(let outcome):
+                syncedUser = uid
+                log("identify (user)", ["user_id": uid, "outcome": outcome as Any])
+                return
+            case .refused:
+                log("identify refused by the server (400), not retried", ["user_id": uid])
+                userId = nil
+                UserDefaults.standard.removeObject(forKey: AffiliateoManager.userIdKey)
+                return
+            case .notLinked:
+                guard beforeFirstOpen && firstOpenDone else {
+                    log("identify: device not known yet, sent again after the first identify", ["user_id": uid])
+                    return
+                }
+                log("identify: device known now, sending again", ["user_id": uid])
+            }
+        }
+    }
+
+    /// POST /api/v1/mobile/logout. The pending flag is cleared only once the
+    /// server has it; until then the next launch sends it again.
+    @MainActor
+    private func sendLogout() async {
+        if isOptedOut { return }
+        let task = Task { @MainActor in
+            do {
+                let outcome = try await self.client.logout(campaignId: self.campaignId, deviceId: self.deviceId)
+                self.log("logout", ["outcome": outcome as Any])
+                // Nobody signed in meanwhile (a sign-in clears the flag itself).
+                if self.userId == nil {
+                    UserDefaults.standard.removeObject(forKey: AffiliateoManager.logoutPendingKey)
+                }
+            } catch {
+                self.log("logout failed (network), sent again next launch")
+            }
+        }
+        logoutTask = task
+        await task.value
+        if logoutTask == task { logoutTask = nil }
+    }
+
+    /// After this launch's first identify: the stored user if the server has
+    /// not confirmed it yet (which also covers a sign-in that answered
+    /// `.notLinked`), or a sign-out it never heard.
+    @MainActor
+    private func syncSignedInUser() async {
+        firstOpenDone = true
+        if let uid = userId {
+            if syncedUser != uid { await sendIdentifyUser(uid) }
+        } else if UserDefaults.standard.string(forKey: AffiliateoManager.logoutPendingKey) == "true" {
+            await sendLogout()
         }
     }
 
@@ -434,6 +547,10 @@ public final class AffiliateoManager: ObservableObject {
                 "matched": result.matched,
                 "ref": result.refCode as Any,
             ])
+
+            // The server knows this device now: bring it up to date on who
+            // is signed in.
+            Task { @MainActor in await self.syncSignedInUser() }
 
             // Apple Search Ads attribution: grab the AdServices token for
             // EVERY install (not just affiliate matches — most paid installs
@@ -674,10 +791,9 @@ public enum Affiliateo {
         AffiliateoManager.shared?.track(eventName, metadata: metadata)
     }
 
-    /// Link this anonymous device install to a merchant user_id.
-    /// user_id only. the SDK does NOT accept, collect, or transmit
-    /// email or any other PII. See `AffiliateoManager.identify` for
-    /// the full doc.
+    /// Say who is signed in. Call after sign-in. user_id only. the SDK does
+    /// NOT accept, collect, or transmit email or any other PII. See
+    /// `AffiliateoManager.identify` for the full doc.
     public static func identify(_ userId: String) {
         AffiliateoManager.shared?.identify(userId)
     }
@@ -689,9 +805,13 @@ public enum Affiliateo {
         AffiliateoManager.shared?.setRevenueCatUser(appUserId)
     }
 
-    /// Wipe the device identity. Call on app logout when a different
-    /// person might use this device afterwards. See
-    /// `AffiliateoManager.reset` for full doc.
+    /// The user signed out. The device starts over as anonymous; tracking
+    /// carries on. See `AffiliateoManager.logout` for the full doc.
+    public static func logout() {
+        AffiliateoManager.shared?.logout()
+    }
+
+    /// The same as `logout()` since 4.11.0. See `AffiliateoManager.reset`.
     public static func reset() {
         AffiliateoManager.shared?.reset()
     }
