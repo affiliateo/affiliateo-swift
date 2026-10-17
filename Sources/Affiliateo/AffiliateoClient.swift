@@ -78,8 +78,9 @@ final class AffiliateoClient {
         }
     }
 
-    /// Tell Affiliateo who is signed in on this device. user_id only. the
-    /// SDK does NOT accept, collect, or transmit email or any other PII.
+    /// Tell Affiliateo who is signed in on this device: the user id, and since
+    /// 4.12.0 the SHA-256 of their email when the app gave one (never the
+    /// address itself), which is what free access is matched on.
     ///
     /// Since 4.11.0 the answer is read rather than ignored:
     /// - `.linked(outcome:)`: the server has it. The outcome says what
@@ -91,17 +92,19 @@ final class AffiliateoClient {
     /// - `.refused`: a 400, the id is not one a sign-in gives. Not retried.
     /// Anything else (offline, a 5xx, a rate limit) throws, and the next
     /// launch sends the stored id again.
-    func identifyUser(campaignId: String, deviceId: String, userId: String) async throws -> IdentifyUserResult {
+    func identifyUser(campaignId: String, deviceId: String, userId: String, emailSha256: String? = nil) async throws -> IdentifyUserResult {
         let url = URL(string: "\(apiUrl)/api/v1/mobile/identify-user")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "campaign_id": campaignId,
             "device_id": deviceId,
             "user_id": userId,
         ]
+        // Left out when there is no email: the server keeps what it has.
+        if let emailSha256 { body["email_sha256"] = emailSha256 }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -139,6 +142,32 @@ final class AffiliateoClient {
         }
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         return json?["outcome"] as? String
+    }
+
+    /// Whether the app owner gave the person signed in on this device free
+    /// access (4.12.0). POST /api/v1/mobile/free-access. Throws when there is
+    /// no usable answer (offline, a non-2xx, a reply that is not one), so the
+    /// caller can fall back to the saved answer.
+    func freeAccess(campaignId: String, deviceId: String) async throws -> AffiliateoFreeAccess {
+        let url = URL(string: "\(apiUrl)/api/v1/mobile/free-access")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // An app may hold its paywall for this answer, so it does not wait
+        // the default minute: past this the saved answer is used.
+        request.timeoutInterval = 10
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "campaign_id": campaignId,
+            "device_id": deviceId,
+        ])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode),
+              let answer = FreeAccessCache.parseReply(data) else {
+            throw AffiliateoFreeAccessCheckFailed()
+        }
+        return answer
     }
 
     /// Report the host app's RevenueCat App User ID

@@ -89,6 +89,10 @@ enum IdentifyUserResult {
 /// public `AffiliateoError` would break apps that switch over it exhaustively.
 struct AffiliateoLogoutFailed: Error {}
 
+/// The free access check got no usable answer (4.12.0). Internal for the same
+/// reason; `Affiliateo.freeAccess()` never throws.
+struct AffiliateoFreeAccessCheckFailed: Error {}
+
 /// Errors thrown by the SDK.
 public enum AffiliateoError: Error, LocalizedError {
     case identifyFailed

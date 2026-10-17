@@ -1,9 +1,17 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.11.0
+// SDK version: 4.12.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.12.0: free access for apps that sell without RevenueCat (StoreKit,
+//   Google Play Billing, Adapty, Stripe). identify(_:email:) takes the
+//   signed-in person's email and sends only its SHA-256 (trimmed and
+//   lowercased first), never the address. New Affiliateo.freeAccess() asks
+//   whether the app owner gave that person free access and answers
+//   { active, productId, expiresAt }; it never throws, saves each answer on
+//   the phone, and when offline uses the saved one while its end is ahead and
+//   it is at most 7 days old. logout() forgets it. First test target.
 // 4.11.0: sign-in and sign-out follow Affiliateo's customers (one person per
 //   app, the RevenueCat model). New logout() for sign-out: the device starts
 //   over as anonymous and tracking carries on with the same device id,
@@ -63,6 +71,11 @@ let package = Package(
         .target(
             name: "Affiliateo",
             path: "Sources/Affiliateo"
+        ),
+        .testTarget(
+            name: "AffiliateoTests",
+            dependencies: ["Affiliateo"],
+            path: "Tests/AffiliateoTests"
         ),
     ]
 )

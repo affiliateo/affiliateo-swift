@@ -34,6 +34,11 @@ jobs:
       - name: Build (macOS)
         run: swift build -v
 
+      - name: Test (macOS)
+        # Since 4.12.0: the email hash and the free access rules (the saved
+        # answer's 7 days and end date, the reply the server gives).
+        run: swift test
+
       - name: Build (iOS)
         # generic/platform=iOS builds for the device SDK without needing a
         # simulator to boot, which is both faster and less flaky than pinning

@@ -117,6 +117,9 @@ public final class AffiliateoManager: ObservableObject {
     // style as the opt-out flag, and the same names as the React Native SDK.
     private static let userIdKey = "affiliateo_user_id"
     private static let logoutPendingKey = "affiliateo_logout_pending"
+    // The signed-in user's email as a SHA-256 (4.12.0), never the address,
+    // kept with the user id so the once-per-launch re-send carries it too.
+    private static let emailHashKey = "affiliateo_email_sha256"
 
     private let campaignId: String
     private let apiUrl: String
@@ -151,6 +154,21 @@ public final class AffiliateoManager: ObservableObject {
     private var firstOpenDone = false
     /// A logout call on its way; a sign-in waits for it.
     private var logoutTask: Task<Void, Never>?
+    /// SHA-256 of the signed-in user's email (4.12.0), mirrored in
+    /// UserDefaults; nil when the app gave none.
+    private var emailHash: String?
+    /// The email hash the server confirmed along with `syncedUser`.
+    private var syncedEmailHash: String?
+    /// Goes up on sign-out and when a different user signs in, so a free
+    /// access answer for the person before is neither saved nor returned.
+    private var freeAccessEpoch = 0
+
+    // This launch's first identify, and the latest identify or logout call
+    // (4.12.0): freeAccess() asks once the server has heard them. Set from
+    // whichever thread the app calls on, hence the lock.
+    private let workLock = NSLock()
+    private var launchWork: Task<Void, Never>?
+    private var signInWork: Task<Void, Never>?
 
     public init(
         appId: String,
@@ -172,6 +190,7 @@ public final class AffiliateoManager: ObservableObject {
         self.isOptedOut = UserDefaults.standard.string(forKey: AffiliateoManager.optOutKey) == "true"
         self.debug = debug
         self.userId = AffiliateoUserId.usable(UserDefaults.standard.string(forKey: AffiliateoManager.userIdKey))
+        self.emailHash = userId == nil ? nil : UserDefaults.standard.string(forKey: AffiliateoManager.emailHashKey)
         AffiliateoManager.shared = self
     }
 
@@ -233,9 +252,12 @@ public final class AffiliateoManager: ObservableObject {
         }
 
         log("init", ["app": campaignId, "device": deviceId])
-        Task {
+        let launch = Task {
             await identify()
         }
+        workLock.lock()
+        launchWork = launch
+        workLock.unlock()
 
         // Keep the server-side session alive on foreground. The server's
         // start_mobile_session RPC handles rotation based on the 10-minute
@@ -310,20 +332,29 @@ public final class AffiliateoManager: ObservableObject {
     /// over as a new anonymous customer of the app, so whoever signs in next
     /// (or nobody) is not counted as the person who just left, and
     /// everything already recorded stays with them. Forgets the stored user
-    /// id.
+    /// id, their email hash and the saved free access answer.
     ///
     /// Tracking carries on: same device id, same visitor id, same
     /// `appAccountToken`, nothing to relaunch. A sign-out made offline (or
     /// while opted out) is sent after the next launch's identify.
     public func logout() {
         log("logout requested")
-        Task { @MainActor in
+        // Right away, not in the task: a freeAccess() that cannot reach the
+        // server must not unlock from the person who just left.
+        FreeAccessCache.clear()
+        let task = Task { @MainActor in
             self.userId = nil
             self.syncedUser = nil
+            self.emailHash = nil
+            self.syncedEmailHash = nil
+            self.freeAccessEpoch += 1
+            FreeAccessCache.clear()
             UserDefaults.standard.removeObject(forKey: AffiliateoManager.userIdKey)
+            UserDefaults.standard.removeObject(forKey: AffiliateoManager.emailHashKey)
             UserDefaults.standard.set("true", forKey: AffiliateoManager.logoutPendingKey)
             await self.sendLogout()
         }
+        setSignInWork(task)
     }
 
     /// The same as `logout()` since 4.11.0.
@@ -380,9 +411,12 @@ public final class AffiliateoManager: ObservableObject {
     /// it. Does nothing while opted out, and skips ids that mean "nobody"
     /// ("null", "undefined", "guest", "0", RevenueCat's $RCAnonymousID:...).
     ///
-    /// user_id only. the SDK does NOT accept, collect, or transmit
-    /// email or any other PII.
-    public func identify(_ userId: String) {
+    /// `email` (4.12.0, optional) is the address the person signed in with.
+    /// It never leaves the phone: the SDK sends only its SHA-256 (trimmed and
+    /// lowercased first), which is how an affiliate the app owner gave free
+    /// access is recognised (see `freeAccess()`). Leave it out and the hash
+    /// already stored for this user is kept.
+    public func identify(_ userId: String, email: String? = nil) {
         if isOptedOut {
             log("identify skipped: opted out")
             return
@@ -391,38 +425,73 @@ public final class AffiliateoManager: ObservableObject {
             log("identify skipped: not a user id (empty, over 128 characters, or a placeholder like \"null\", \"guest\" or \"0\")", ["user_id": userId])
             return
         }
-        Task { @MainActor in
+        let hash = AffiliateoEmail.sha256Hex(email)
+        let task = Task { @MainActor in
             if self.userId != uid {
                 self.userId = uid
                 UserDefaults.standard.set(uid, forKey: AffiliateoManager.userIdKey)
+                // Somebody else: their own email (or none), and no free access
+                // answer that belonged to the person before.
+                self.setEmailHash(hash)
+                self.freeAccessEpoch += 1
+                FreeAccessCache.clear()
+            } else if let hash, hash != self.emailHash {
+                self.setEmailHash(hash)
             }
             // A sign-in replaces a sign-out that never reached the server: a
             // different person signing in switches the device anyway.
             UserDefaults.standard.removeObject(forKey: AffiliateoManager.logoutPendingKey)
             // Already confirmed this launch: nothing to send.
-            if self.syncedUser == uid { return }
+            if self.syncedUser == uid && self.syncedEmailHash == self.emailHash { return }
             await self.sendIdentifyUser(uid)
         }
+        setSignInWork(task)
+    }
+
+    /// The signed-in user's email hash, mirrored in UserDefaults.
+    @MainActor
+    private func setEmailHash(_ hash: String?) {
+        emailHash = hash
+        if let hash {
+            UserDefaults.standard.set(hash, forKey: AffiliateoManager.emailHashKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: AffiliateoManager.emailHashKey)
+        }
+    }
+
+    // Not async, because NSLock must not be held across a suspension point.
+    private func setSignInWork(_ task: Task<Void, Never>) {
+        workLock.lock()
+        signInWork = task
+        workLock.unlock()
+    }
+
+    private func pendingSignInWork() -> [Task<Void, Never>] {
+        workLock.lock()
+        defer { workLock.unlock() }
+        return [launchWork, signInWork].compactMap { $0 }
     }
 
     /// POST /api/v1/mobile/identify-user for the signed-in user. A 400 is not
     /// retried (and the stored id is forgotten); a network or server error
     /// leaves it stored for the next launch; `.notLinked` is sent once more
-    /// when this launch's first identify finished while it was on its way.
+    /// when this launch's first identify finished while it was on its way,
+    /// and a new email given while it was on its way is sent right after.
     @MainActor
     private func sendIdentifyUser(_ uid: String) async {
         // Already on its way: that call's answer decides what happens next.
         if userInFlight == uid { return }
         userInFlight = uid
         defer { if userInFlight == uid { userInFlight = nil } }
-        for _ in 0..<2 {
+        for _ in 0..<3 {
             // A sign-out still on its way lands first, so it cannot undo this.
             if let pending = logoutTask { await pending.value }
             guard !isOptedOut, userId == uid else { return }
             let beforeFirstOpen = !firstOpenDone
+            let sentHash = emailHash
             let result: IdentifyUserResult
             do {
-                result = try await client.identifyUser(campaignId: campaignId, deviceId: deviceId, userId: uid)
+                result = try await client.identifyUser(campaignId: campaignId, deviceId: deviceId, userId: uid, emailSha256: sentHash)
             } catch {
                 log("identify failed (network), sent again next launch", ["user_id": uid])
                 return
@@ -432,11 +501,14 @@ public final class AffiliateoManager: ObservableObject {
             switch result {
             case .linked(let outcome):
                 syncedUser = uid
-                log("identify (user)", ["user_id": uid, "outcome": outcome as Any])
-                return
+                syncedEmailHash = sentHash
+                log("identify (user)", ["user_id": uid, "outcome": outcome as Any, "email_sha256": sentHash as Any])
+                // A new email came in while this was on its way.
+                if emailHash == sentHash { return }
             case .refused:
                 log("identify refused by the server (400), not retried", ["user_id": uid])
                 userId = nil
+                setEmailHash(nil)
                 UserDefaults.standard.removeObject(forKey: AffiliateoManager.userIdKey)
                 return
             case .notLinked:
@@ -478,9 +550,80 @@ public final class AffiliateoManager: ObservableObject {
     private func syncSignedInUser() async {
         firstOpenDone = true
         if let uid = userId {
-            if syncedUser != uid { await sendIdentifyUser(uid) }
+            if syncedUser != uid || syncedEmailHash != emailHash { await sendIdentifyUser(uid) }
         } else if UserDefaults.standard.string(forKey: AffiliateoManager.logoutPendingKey) == "true" {
             await sendLogout()
+        }
+    }
+
+    /// Whether the app owner gave the signed-in person free access from their
+    /// Affiliateo dashboard (4.12.0). For apps that sell with StoreKit, Google
+    /// Play Billing, Adapty or Stripe directly, where Affiliateo cannot hand
+    /// out a subscription itself; apps on RevenueCat get a RevenueCat
+    /// entitlement instead and need none of this.
+    ///
+    /// ```swift
+    /// Affiliateo.identify(user.id, email: user.email)
+    /// if await Affiliateo.freeAccess().active { unlock() }
+    /// ```
+    ///
+    /// The person is recognised by the email given to `identify(_:email:)`,
+    /// so call that first; the check waits (up to 10 seconds) for this
+    /// launch's first identify and the latest sign-in or sign-out to reach
+    /// the server. `productId` names the plan the owner chose (nil means full
+    /// access) and `expiresAt` when it ends (nil means no end).
+    ///
+    /// Never throws. Each answer is saved on the phone; when the server
+    /// cannot be reached (or the person has opted out, when nothing is sent)
+    /// the saved answer is used while its end is still ahead and it is at
+    /// most 7 days old, otherwise the answer is no access. Signing out, or a
+    /// different user signing in, forgets the saved answer.
+    @MainActor
+    public func freeAccess() async -> AffiliateoFreeAccess {
+        await waitForSignIn(seconds: 10)
+        if isOptedOut {
+            let saved = FreeAccessCache.offlineAnswer(FreeAccessCache.load(), now: Date())
+            log("freeAccess: opted out, answered from the phone", ["active": saved.active])
+            return saved
+        }
+        let epoch = freeAccessEpoch
+        do {
+            let answer = try await client.freeAccess(campaignId: campaignId, deviceId: deviceId)
+            // Signed out, or somebody else signed in, while this was asked.
+            guard epoch == freeAccessEpoch else { return .inactive }
+            FreeAccessCache.save(FreeAccessCache.Entry(answer, checkedAt: Date()))
+            log("freeAccess", [
+                "active": answer.active,
+                "product_id": answer.productId as Any,
+                "expires_at": answer.expiresAt as Any,
+            ])
+            return answer
+        } catch {
+            guard epoch == freeAccessEpoch else { return .inactive }
+            let saved = FreeAccessCache.offlineAnswer(FreeAccessCache.load(), now: Date())
+            log("freeAccess failed, answered from the phone", ["active": saved.active])
+            return saved
+        }
+    }
+
+    /// Until this launch's first identify (with the sign-in sync after it)
+    /// and the latest identify or logout have finished, or `seconds` passed.
+    private func waitForSignIn(seconds: Double) async {
+        let pending = pendingSignInWork()
+        if pending.isEmpty { return }
+        // Awaiting a task's value cannot be cancelled, so the time limit is a
+        // race between the two, and the first to finish resumes.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let once = ResumeOnce(continuation)
+            let timer = Task {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                once.resume()
+            }
+            Task {
+                for task in pending { await task.value }
+                once.resume()
+                timer.cancel()
+            }
         }
     }
 
@@ -493,7 +636,7 @@ public final class AffiliateoManager: ObservableObject {
     /// sign-in and RevenueCat configuration happen at different moments, and
     /// an app may do one without the other.
     ///
-    /// No email or other PII is sent, same as `identify`.
+    /// No email or other PII is sent.
     public func setRevenueCatUser(_ appUserId: String) {
         let rcId = appUserId.trimmingCharacters(in: .whitespacesAndNewlines)
         // 255 matches the server. RevenueCat's anonymous form
@@ -549,8 +692,9 @@ public final class AffiliateoManager: ObservableObject {
             ])
 
             // The server knows this device now: bring it up to date on who
-            // is signed in.
-            Task { @MainActor in await self.syncSignedInUser() }
+            // is signed in. Awaited at the end, so this launch's work
+            // (which freeAccess() waits for) includes it.
+            let signInSync = Task { @MainActor in await self.syncSignedInUser() }
 
             // Apple Search Ads attribution: grab the AdServices token for
             // EVERY install (not just affiliate matches — most paid installs
@@ -568,6 +712,8 @@ public final class AffiliateoManager: ObservableObject {
             // …and read back which RevenueCat customer this device is, so the
             // owner's Access switch has someone to grant to.
             reportRevenueCatAppUserId()
+
+            await signInSync.value
         } catch {
             log("identify failed (network error)")
             await MainActor.run {
@@ -775,6 +921,24 @@ public final class AffiliateoManager: ObservableObject {
     }
 }
 
+/// Resumes a continuation once, whichever caller comes first.
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    init(_ continuation: CheckedContinuation<Void, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume() {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume()
+    }
+}
+
 // MARK: - Static helpers
 
 /// Top-level namespace for firing screen_view / custom events without
@@ -791,11 +955,26 @@ public enum Affiliateo {
         AffiliateoManager.shared?.track(eventName, metadata: metadata)
     }
 
-    /// Say who is signed in. Call after sign-in. user_id only. the SDK does
-    /// NOT accept, collect, or transmit email or any other PII. See
+    /// Say who is signed in. Call after sign-in. Pass `email` for free access:
+    /// only its SHA-256 is sent, never the address. See
     /// `AffiliateoManager.identify` for the full doc.
-    public static func identify(_ userId: String) {
-        AffiliateoManager.shared?.identify(userId)
+    public static func identify(_ userId: String, email: String? = nil) {
+        AffiliateoManager.shared?.identify(userId, email: email)
+    }
+
+    /// Whether the app owner gave the signed-in person free access (4.12.0).
+    /// Never throws. Before `AffiliateoProvider` is up it answers from the
+    /// phone's saved answer. See `AffiliateoManager.freeAccess` for the full
+    /// doc.
+    ///
+    /// ```swift
+    /// if await Affiliateo.freeAccess().active { unlock() }
+    /// ```
+    public static func freeAccess() async -> AffiliateoFreeAccess {
+        guard let manager = AffiliateoManager.shared else {
+            return FreeAccessCache.offlineAnswer(FreeAccessCache.load(), now: Date())
+        }
+        return await manager.freeAccess()
     }
 
     /// Report the host app's RevenueCat App User ID so an app owner can grant
