@@ -170,6 +170,44 @@ final class AffiliateoClient {
         return answer
     }
 
+    /// Which products this phone should price today (4.13.0). POST
+    /// /api/v1/mobile/store-prices with no prices: the app's store product
+    /// ids, and whether a report is due (the server takes one a day).
+    func storePriceProducts(campaignId: String, deviceId: String) async throws -> (productIds: [String], report: Bool) {
+        let json = try await postStorePrices([
+            "campaign_id": campaignId,
+            "device_id": deviceId,
+        ])
+        let ids = (json["product_ids"] as? [Any])?.compactMap { $0 as? String } ?? []
+        return (ids, json["report"] as? Bool ?? false)
+    }
+
+    /// This phone's store prices for those products (4.13.0). POST
+    /// /api/v1/mobile/store-prices with the prices.
+    func reportStorePrices(campaignId: String, deviceId: String, storefront: String, prices: [AffiliateoStorePrice]) async throws {
+        _ = try await postStorePrices([
+            "campaign_id": campaignId,
+            "device_id": deviceId,
+            "storefront": storefront,
+            "prices": prices.map { ["product_id": $0.productId, "price_cents": $0.priceCents, "currency": $0.currency] },
+        ])
+    }
+
+    private func postStorePrices(_ body: [String: Any]) async throws -> [String: Any] {
+        let url = URL(string: "\(apiUrl)/api/v1/mobile/store-prices")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 20
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+    }
+
     /// Report the host app's RevenueCat App User ID
     /// (`Purchases.shared.appUserID`).
     ///

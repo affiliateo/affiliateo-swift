@@ -713,6 +713,12 @@ public final class AffiliateoManager: ObservableObject {
             // owner's Access switch has someone to grant to.
             reportRevenueCatAppUserId()
 
+            // The App Store's own price for the app's products, from a US
+            // phone, once a day, in the background (4.13.0). Never blocks.
+            if !isOptedOut {
+                AffiliateoStorePrices.reportIfDue(client: client, campaignId: campaignId, deviceId: deviceId)
+            }
+
             await signInSync.value
         } catch {
             log("identify failed (network error)")

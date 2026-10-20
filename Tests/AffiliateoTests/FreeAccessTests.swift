@@ -115,3 +115,22 @@ final class FreeAccessReplyTests: XCTestCase {
         XCTAssertNil(parse(#"{"active":true,"expires_at":"next tuesday"}"#))
     }
 }
+
+/// The store prices a US phone reports (4.13.0): whole cents, once a day.
+final class StorePricesTests: XCTestCase {
+    func testWholeCents() {
+        XCTAssertEqual(AffiliateoStorePrices.cents(Decimal(string: "6.99")!), 699)
+        XCTAssertEqual(AffiliateoStorePrices.cents(Decimal(string: "59.99")!), 5999)
+        XCTAssertEqual(AffiliateoStorePrices.cents(Decimal(string: "0.995")!), 100)
+        XCTAssertNil(AffiliateoStorePrices.cents(0))
+    }
+
+    func testOnceADay() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertTrue(AffiliateoStorePrices.isDue(lastChecked: nil, now: now))
+        XCTAssertFalse(AffiliateoStorePrices.isDue(lastChecked: now.addingTimeInterval(-3_600), now: now))
+        XCTAssertTrue(AffiliateoStorePrices.isDue(lastChecked: now.addingTimeInterval(-25 * 3_600), now: now))
+        // A clock set back does not lock the check out.
+        XCTAssertTrue(AffiliateoStorePrices.isDue(lastChecked: now.addingTimeInterval(3_600), now: now))
+    }
+}

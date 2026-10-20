@@ -1,9 +1,16 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.12.0
+// SDK version: 4.13.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.13.0: the App Store's own price for the app's products. Once a day, in
+//   the background, a phone on the US App Store reads the products
+//   Affiliateo asks about (StoreKit 2, the product's own price, never an
+//   intro offer) and reports them, so the app's product cards on Affiliateo
+//   show the store's exact price without any App Store key. Nothing about
+//   the person is sent, nothing to call, never blocks or throws, and
+//   nothing while opted out.
 // 4.12.0: free access for apps that sell without RevenueCat (StoreKit,
 //   Google Play Billing, Adapty, Stripe). identify(_:email:) takes the
 //   signed-in person's email and sends only its SHA-256 (trimmed and

@@ -209,6 +209,11 @@ transaction id. Affiliateo's own two ways are matched on it and go out once.
 - **Matches affiliate referrals** via fingerprint matching
 - **Sets RevenueCat attributes** automatically if RevenueCat is installed
 - **IAP attribution** via StoreKit 2 `appAccountToken`, for every user (see Tag every purchase)
+- **Store prices** (4.13.0): once a day, in the background, a phone on the US
+  App Store reports the App Store's own price for the app's products, so your
+  product cards on Affiliateo show the exact price with no App Store key.
+  Only the product ids, prices, currency and store country are sent; nothing
+  about the person. Nothing to call.
 
 ## Giving affiliates free access
 
