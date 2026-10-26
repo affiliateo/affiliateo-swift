@@ -1,9 +1,12 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.14.0
+// SDK version: 4.14.1
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.14.1: Live Chat's "auto" bubble size: small on an iPhone, medium on an
+//   iPad, the size a new app starts with. The red number and the green dot
+//   now scale with the bubble, so a small bubble keeps the same look.
 // 4.14.0: Live Chat. Affiliateo.showChatBubble() draws a draggable chat
 //   bubble over the app's screens and Affiliateo.openChat() opens the chat
 //   from the app's own button; the business answers from the Live Chat inbox

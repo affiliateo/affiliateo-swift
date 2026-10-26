@@ -166,4 +166,17 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertEqual(tl.x, 440 - 48 - 20)
         XCTAssertEqual(tl.y, 956 - 48 - 20 - 59)
     }
+
+    func testSizesAndBadges() {
+        let auto = ChatRules.parseConfig(Data(#"{"enabled":true,"bubble":{"size":"auto","size_points":56,"size_points_phone":48}}"#.utf8))
+        XCTAssertEqual(auto.bubble.size, 56)
+        XCTAssertEqual(auto.bubble.sizePhone, 48)
+        // A server from before the phone size: both are size_points.
+        let old = ChatRules.parseConfig(Data(#"{"enabled":true,"bubble":{"size":"large","size_points":64}}"#.utf8))
+        XCTAssertEqual(old.bubble.sizePhone, 64)
+        // The website's pinned numbers (bubble-options.test.ts).
+        XCTAssertEqual(ChatRules.badgeMetrics(size: 56), .init(pillHeight: 20, pillFont: 11, pillPadding: 5, pillOffset: 4, dot: 16, dotOffset: 2, border: 2))
+        XCTAssertEqual(ChatRules.badgeMetrics(size: 48), .init(pillHeight: 17, pillFont: 9.5, pillPadding: 4, pillOffset: 3, dot: 14, dotOffset: 2, border: 1.5))
+        XCTAssertEqual(ChatRules.badgeMetrics(size: 64), .init(pillHeight: 23, pillFont: 12.5, pillPadding: 6, pillOffset: 5, dot: 18, dotOffset: 2, border: 2))
+    }
 }

@@ -233,11 +233,13 @@ final class LiveChat {
         }
         // No window yet (the app is still launching): the next foreground places it.
         guard let window = Self.hostWindow() else { return }
-        if let existing = bubble, existing.size != CGFloat(style.size) {
+        // An iPhone gets the owner's phone size ("auto" makes it smaller), an iPad the other.
+        let size = CGFloat(UIDevice.current.userInterfaceIdiom == .phone ? style.sizePhone : style.size)
+        if let existing = bubble, existing.size != size {
             existing.removeFromSuperview()
             bubble = nil
         }
-        let view = bubble ?? ChatBubbleView(appId: env.appId, size: CGFloat(style.size)) { LiveChat.shared.open() }
+        let view = bubble ?? ChatBubbleView(appId: env.appId, size: size) { LiveChat.shared.open() }
         bubble = view
         view.position = style.position
         if view.superview !== window {
@@ -399,6 +401,8 @@ final class ChatBubbleView: UIView {
     private let art = UIImageView()
     private let pill = UILabel()
     private let dot = UIView()
+    /// The red number and the green dot, scaled with the circle.
+    private let badge: ChatRules.BadgeMetrics
     /// Distance from the window's right and bottom edges, safe area included,
     /// the way the React Native bubble keeps it. Set once the person drags it
     /// (now or on an earlier launch); until then the bubble follows the corner.
@@ -409,6 +413,7 @@ final class ChatBubbleView: UIView {
         self.appId = appId
         self.size = size
         self.onTap = onTap
+        self.badge = ChatRules.badgeMetrics(size: Double(size))
         super.init(frame: CGRect(x: 0, y: 0, width: size, height: size))
 
         layer.cornerRadius = size / 2
@@ -426,19 +431,20 @@ final class ChatBubbleView: UIView {
 
         pill.backgroundColor = UIColor(red: 0xEF / 255, green: 0x44 / 255, blue: 0x44 / 255, alpha: 1)
         pill.textColor = .white
-        pill.font = .systemFont(ofSize: 11, weight: .bold)
+        pill.font = .systemFont(ofSize: CGFloat(badge.pillFont), weight: .bold)
         pill.textAlignment = .center
-        pill.layer.cornerRadius = 10
-        pill.layer.borderWidth = 2
+        pill.layer.cornerRadius = CGFloat(badge.pillHeight) / 2
+        pill.layer.borderWidth = CGFloat(badge.border)
         pill.layer.borderColor = UIColor.white.cgColor
         pill.clipsToBounds = true
         pill.isHidden = true
         addSubview(pill)
 
-        dot.frame = CGRect(x: -2, y: -2, width: 16, height: 16)
+        let dotSize = CGFloat(badge.dot)
+        dot.frame = CGRect(x: -CGFloat(badge.dotOffset), y: -CGFloat(badge.dotOffset), width: dotSize, height: dotSize)
         dot.backgroundColor = UIColor(red: 0x22 / 255, green: 0xC5 / 255, blue: 0x5E / 255, alpha: 1)
-        dot.layer.cornerRadius = 8
-        dot.layer.borderWidth = 2
+        dot.layer.cornerRadius = dotSize / 2
+        dot.layer.borderWidth = CGFloat(badge.border)
         dot.layer.borderColor = UIColor.white.cgColor
         dot.isHidden = true
         addSubview(dot)
@@ -458,8 +464,10 @@ final class ChatBubbleView: UIView {
     func update(unread: Int, online: Bool) {
         if let text = ChatRules.badgeText(unread) {
             pill.text = text
-            let width = max(20, ceil(pill.intrinsicContentSize.width) + 10)
-            pill.frame = CGRect(x: size + 4 - width, y: -4, width: width, height: 20)
+            let height = CGFloat(badge.pillHeight)
+            let offset = CGFloat(badge.pillOffset)
+            let width = max(height, ceil(pill.intrinsicContentSize.width) + 2 * CGFloat(badge.pillPadding))
+            pill.frame = CGRect(x: size + offset - width, y: -offset, width: width, height: height)
             pill.isHidden = false
             dot.isHidden = true
             accessibilityValue = text

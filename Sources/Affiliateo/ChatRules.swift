@@ -46,8 +46,10 @@ enum ChatRules {
     struct Bubble: Equatable {
         /// bottom-right, bottom-left, top-right or top-left.
         var position = "bottom-right"
-        /// The circle, in points: 48, 56 or 64.
+        /// The circle on an iPad, in points: 48, 56 or 64.
         var size: Double = 56
+        /// The circle on an iPhone (smaller than `size` for the owner's "auto").
+        var sizePhone: Double = 56
         /// all, only or except.
         var pageMode = "all"
         /// Screen names, `*` matching anything.
@@ -109,7 +111,11 @@ enum ChatRules {
         if let position = b["position"] as? String, ["bottom-left", "top-right", "top-left"].contains(position) {
             bubble.position = position
         }
-        if let size = b["size_points"] as? Double, size >= 40, size <= 80 { bubble.size = size }
+        if let size = b["size_points"] as? Double, size >= 40, size <= 80 {
+            bubble.size = size
+            bubble.sizePhone = size
+        }
+        if let phone = b["size_points_phone"] as? Double, phone >= 40, phone <= 80 { bubble.sizePhone = phone }
         if let mode = b["page_mode"] as? String, mode == "only" || mode == "except" { bubble.pageMode = mode }
         bubble.pageRules = (b["page_rules"] as? [Any])?.compactMap { $0 as? String } ?? []
         if let id = b["greeting_id"] as? String, !id.isEmpty { bubble.greetingId = id }
@@ -227,6 +233,31 @@ enum ChatRules {
         case "affiliateo:chat-message": return .message
         default: return nil
         }
+    }
+
+    /// The red number and the green dot for a circle of `size` points, scaled
+    /// from the 56-point bubble's (the website's badgeMetrics; the same numbers).
+    struct BadgeMetrics: Equatable {
+        let pillHeight: Double
+        let pillFont: Double
+        let pillPadding: Double
+        let pillOffset: Double
+        let dot: Double
+        let dotOffset: Double
+        let border: Double
+    }
+
+    static func badgeMetrics(size: Double) -> BadgeMetrics {
+        let s = size / 56
+        return BadgeMetrics(
+            pillHeight: (20 * s).rounded(),
+            pillFont: (11 * s * 2).rounded() / 2,
+            pillPadding: (5 * s).rounded(),
+            pillOffset: (4 * s).rounded(),
+            dot: (16 * s).rounded(),
+            dotOffset: (2 * s).rounded(),
+            border: s < 1 ? 1.5 : 2
+        )
     }
 
     /// The red number on the bubble: up to 9, then "9+".
