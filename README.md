@@ -228,9 +228,15 @@ Affiliateo.hideChatBubble()
   Chat is off for this app in your dashboard.
 - The bubble sits on top of your screens (a sheet you present covers it).
   People can drag it and it stays where they leave it. It shows a red number
-  for replies they have not read, and a green dot while someone on your team
-  is online. If you chose "only while someone is online", it hides while
-  nobody is.
+  for replies they have not read, live while the app is open, and a green dot
+  while someone on your team is online. If you chose "only while someone is
+  online", it hides while nobody is.
+- In the Live Chat settings of your dashboard you choose, per app, the corner
+  it starts in, its size, a greeting that shows as one unread message (a red
+  1) until the person first opens the chat, and the screens it shows on.
+  Screen rules match the names you send with `Affiliateo.page(_:)` or
+  `.trackedScreen(_:)` (`Settings`, `Paywall*`), so send them if you use
+  rules.
 - The chat screen is Affiliateo's hosted chat page, full screen and in the
   person's language. Links you send open in Safari.
 - The person needs no account. Their first message opens a thread, and the

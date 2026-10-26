@@ -282,6 +282,10 @@ public final class AffiliateoManager: ObservableObject {
     /// Fire a screen_view event for a specific screen.
     /// Call from `onAppear` in SwiftUI or `viewDidAppear` in UIKit.
     public func page(_ screenName: String, metadata: [String: Any]? = nil) {
+        // Live Chat's screen rules follow the screen, opted out or not (4.14.0).
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.screenChanged(screenName) }
+        #endif
         if isOptedOut { return }
         log("page", ["screen": screenName, "metadata": metadata as Any])
         // Build the wire payload here (instead of via client.sendEvents)

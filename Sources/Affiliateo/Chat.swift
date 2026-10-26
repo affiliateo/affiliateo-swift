@@ -13,6 +13,13 @@ import WebKit
 /// the business has the chat switched off for this app, which the SDK asks
 /// the server about.
 ///
+/// The owner's choices come with the config (ChatRules.Bubble): the corner the
+/// bubble starts in, its size, the screens it shows on (matched against the
+/// name the app last passed to `Affiliateo.page(_:)`), and a greeting that
+/// counts as one unread message until the chat is first opened. While the app
+/// is in front and the chat is closed, a socket on the thread keeps the red
+/// number live.
+///
 /// The visitor's key to their thread (a token the server hands out with their
 /// first message) is kept in UserDefaults, the React Native SDK's choice too:
 /// a reinstall clears it and starts a new thread, which is what the server
@@ -26,11 +33,22 @@ final class LiveChat {
     private var configTask: Task<ChatRules.Config, Never>?
     private var unreadCheckedAt: Date?
     private var unread = 0
+    /// The greeting nobody on this phone has seen yet: one unread message.
+    private var greetingPending = false
+    /// The name the app last passed to page(_:).
+    private var currentScreen: String?
     private var wantsBubble = false
     private var wantsOpen = false
     private var observing = false
+    private var inFront = true
     private var bubble: ChatBubbleView?
     private weak var screen: ChatViewController?
+
+    // The live socket on the thread, for the red number.
+    private var socket: URLSessionWebSocketTask?
+    private var socketTries = 0
+    private var socketRetry: Task<Void, Never>?
+    private var socketPing: Timer?
 
     private init() {}
 
@@ -90,6 +108,13 @@ final class LiveChat {
         }
     }
 
+    /// The app called page(_:): the owner's screen rules follow it.
+    func screenChanged(_ name: String) {
+        guard !name.isEmpty, name != currentScreen else { return }
+        currentScreen = name
+        if wantsBubble, config != nil { placeBubble() }
+    }
+
     // MARK: The server
 
     /// Whether the business has the chat on for this app. A network failure
@@ -118,6 +143,12 @@ final class LiveChat {
         configTask = nil
         config = answer
         configCheckedAt = Date()
+        // Somebody who already wrote has seen the greeting.
+        if answer.enabled, let id = answer.bubble.greetingId, storedToken(env.appId) == nil {
+            greetingPending = UserDefaults.standard.string(forKey: ChatRules.greetingKey(env.appId)) != id
+        } else {
+            greetingPending = false
+        }
         return answer
     }
 
@@ -152,11 +183,19 @@ final class LiveChat {
         ) { _ in
             Task { @MainActor in LiveChat.shared.cameToFront() }
         }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in LiveChat.shared.wentAway() }
+        }
     }
 
     /// The owner may have switched the chat on or off while the app was away,
     /// and a reply may have come in.
     private func cameToFront() {
+        inFront = true
         guard wantsBubble, env != nil else { return }
         Task {
             await refreshConfig(force: false)
@@ -165,9 +204,18 @@ final class LiveChat {
         }
     }
 
+    private func wentAway() {
+        inFront = false
+        stopSocket()
+    }
+
     private func setUnread(_ count: Int) {
         unread = count
-        bubble?.update(unread: unread, online: config?.online ?? false)
+        paintBubble()
+    }
+
+    private func paintBubble() {
+        bubble?.update(unread: unread + (greetingPending ? 1 : 0), online: config?.online ?? false)
     }
 
     // MARK: The bubble
@@ -177,14 +225,21 @@ final class LiveChat {
             removeBubble()
             return
         }
-        guard screen == nil else {
+        let style = config.bubble
+        guard screen == nil, ChatRules.bubbleShowsOn(mode: style.pageMode, rules: style.pageRules, place: currentScreen) else {
             bubble?.isHidden = true
+            stopSocket()
             return
         }
         // No window yet (the app is still launching): the next foreground places it.
         guard let window = Self.hostWindow() else { return }
-        let view = bubble ?? ChatBubbleView(appId: env.appId) { LiveChat.shared.open() }
+        if let existing = bubble, existing.size != CGFloat(style.size) {
+            existing.removeFromSuperview()
+            bubble = nil
+        }
+        let view = bubble ?? ChatBubbleView(appId: env.appId, size: CGFloat(style.size)) { LiveChat.shared.open() }
         bubble = view
+        view.position = style.position
         if view.superview !== window {
             view.removeFromSuperview()
             window.addSubview(view)
@@ -192,12 +247,77 @@ final class LiveChat {
         view.place()
         window.bringSubviewToFront(view)
         view.isHidden = false
-        view.update(unread: unread, online: config.online)
+        paintBubble()
+        startSocket()
     }
 
     private func removeBubble() {
+        stopSocket()
         bubble?.removeFromSuperview()
         bubble = nil
+    }
+
+    // MARK: The live red number
+
+    /// A socket on the thread while there is one, the bubble is on screen,
+    /// the app is in front and the chat is closed (the chat screen has its own).
+    private func startSocket() {
+        guard socket == nil, socketRetry == nil, inFront, screen == nil, bubble?.isHidden == false,
+              let env, let token = storedToken(env.appId),
+              let url = URL(string: env.apiUrl.replacingOccurrences(of: "http", with: "ws", options: .anchored)
+                  + "/api/live-chat/stream?token=\(ChatRules.encode(token))")
+        else { return }
+        let task = URLSession.shared.webSocketTask(with: url)
+        socket = task
+        task.resume()
+        socketPing = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak task] _ in
+            task?.send(.string("ping")) { _ in }
+        }
+        Task { await listen(task) }
+    }
+
+    private func listen(_ task: URLSessionWebSocketTask) async {
+        while socket === task {
+            do {
+                let message = try await task.receive()
+                socketTries = 0
+                guard case .string(let text) = message, text != "pong",
+                      let data = text.data(using: .utf8),
+                      let frame = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                      frame["kind"] as? String == "live_chat"
+                else { continue }
+                let event = frame["event"] as? String
+                if event == "message", (frame["message"] as? [String: Any])?["sender"] as? String == "team" {
+                    setUnread(unread + 1)
+                } else if event == "read", frame["by"] as? String == "visitor" {
+                    setUnread(0)
+                }
+            } catch {
+                guard socket === task else { return }
+                dropSocket()
+                socketTries += 1
+                let delay = min(60, pow(2, Double(min(socketTries, 6))))
+                socketRetry = Task {
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    self.socketRetry = nil
+                    self.startSocket()
+                }
+                return
+            }
+        }
+    }
+
+    private func dropSocket() {
+        socketPing?.invalidate()
+        socketPing = nil
+        socket?.cancel(with: .goingAway, reason: nil)
+        socket = nil
+    }
+
+    private func stopSocket() {
+        socketRetry?.cancel()
+        socketRetry = nil
+        dropSocket()
     }
 
     // MARK: The chat screen
@@ -224,6 +344,10 @@ final class LiveChat {
         controller.onRead = { LiveChat.shared.setUnread(0) }
         controller.onClosed = { LiveChat.shared.chatClosed() }
         screen = controller
+        // They see the greeting now; a new one counts again.
+        if let id = config?.bubble.greetingId { UserDefaults.standard.set(id, forKey: ChatRules.greetingKey(appId)) }
+        greetingPending = false
+        stopSocket()
         bubble?.isHidden = true
         presenter.present(controller, animated: true)
     }
@@ -259,11 +383,16 @@ final class LiveChat {
 // MARK: - The bubble
 
 /// The floating chat bubble: the app's window gets it as its top view, so a
-/// screen the app presents later (a sheet, a paywall) covers it. Press, hold
-/// and move to drag it; it remembers where it was left.
+/// screen the app presents later (a sheet, a paywall) covers it. It starts in
+/// the owner's corner; press, hold and move to drag it, and it stays where it
+/// was left from then on.
 final class ChatBubbleView: UIView {
-    static let size: CGFloat = 56
     static let margin: CGFloat = 20
+
+    /// The circle, in points.
+    let size: CGFloat
+    /// The owner's corner: bottom-right, bottom-left, top-right or top-left.
+    var position = "bottom-right"
 
     private let appId: String
     private let onTap: () -> Void
@@ -271,19 +400,18 @@ final class ChatBubbleView: UIView {
     private let pill = UILabel()
     private let dot = UIView()
     /// Distance from the window's right and bottom edges, safe area included,
-    /// the way the React Native bubble keeps it. Nil until placed.
-    private var offset: CGPoint?
+    /// the way the React Native bubble keeps it. Set once the person drags it
+    /// (now or on an earlier launch); until then the bubble follows the corner.
+    private var dragged: CGPoint?
     private var dragStart: CGPoint = .zero
 
-    init(appId: String, onTap: @escaping () -> Void) {
+    init(appId: String, size: CGFloat, onTap: @escaping () -> Void) {
         self.appId = appId
+        self.size = size
         self.onTap = onTap
-        super.init(frame: CGRect(x: 0, y: 0, width: Self.size, height: Self.size))
-        // Keeps the distance from the right and bottom edges when the window
-        // turns or resizes.
-        autoresizingMask = [.flexibleLeftMargin, .flexibleTopMargin]
+        super.init(frame: CGRect(x: 0, y: 0, width: size, height: size))
 
-        layer.cornerRadius = Self.size / 2
+        layer.cornerRadius = size / 2
         backgroundColor = UIColor(red: 0x17 / 255, green: 0x54 / 255, blue: 0xD8 / 255, alpha: 1)
         layer.shadowColor = backgroundColor?.cgColor
         layer.shadowOpacity = 0.3
@@ -291,7 +419,7 @@ final class ChatBubbleView: UIView {
         layer.shadowOffset = CGSize(width: 0, height: 4)
 
         art.frame = bounds
-        art.layer.cornerRadius = Self.size / 2
+        art.layer.cornerRadius = size / 2
         art.clipsToBounds = true
         if let data = ChatBubbleImage.pngData { art.image = UIImage(data: data, scale: 3) }
         addSubview(art)
@@ -315,11 +443,13 @@ final class ChatBubbleView: UIView {
         dot.isHidden = true
         addSubview(dot)
 
+        dragged = savedOffset()
+
         isAccessibilityElement = true
         accessibilityLabel = "Chat"
         accessibilityTraits = .button
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped)))
-        addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(dragged(_:))))
+        addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(handleDrag(_:))))
     }
 
     @available(*, unavailable)
@@ -329,7 +459,7 @@ final class ChatBubbleView: UIView {
         if let text = ChatRules.badgeText(unread) {
             pill.text = text
             let width = max(20, ceil(pill.intrinsicContentSize.width) + 10)
-            pill.frame = CGRect(x: Self.size + 4 - width, y: -4, width: width, height: 20)
+            pill.frame = CGRect(x: size + 4 - width, y: -4, width: width, height: 20)
             pill.isHidden = false
             dot.isHidden = true
             accessibilityValue = text
@@ -340,12 +470,35 @@ final class ChatBubbleView: UIView {
         }
     }
 
-    /// Where it was left last time, kept inside the window.
+    /// In the owner's corner, or where the person left it, kept inside the window.
     func place() {
         guard let window = superview else { return }
+        if let dragged {
+            autoresizingMask = [.flexibleLeftMargin, .flexibleTopMargin]
+            move(to: dragged)
+            return
+        }
         let insets = window.safeAreaInsets
-        let start = offset ?? savedOffset() ?? CGPoint(x: Self.margin + insets.right, y: Self.margin + insets.bottom)
-        move(to: start)
+        let corner = ChatRules.cornerOffset(
+            position: position,
+            size: Double(size),
+            width: Double(window.bounds.width),
+            height: Double(window.bounds.height),
+            insets: (Double(insets.top), Double(insets.bottom), Double(insets.left), Double(insets.right)),
+            margin: Double(Self.margin)
+        )
+        // Keeps the corner when the window turns or resizes.
+        var mask: UIView.AutoresizingMask = []
+        mask.insert(position.hasPrefix("top") ? .flexibleBottomMargin : .flexibleTopMargin)
+        mask.insert(position.hasSuffix("left") ? .flexibleRightMargin : .flexibleLeftMargin)
+        autoresizingMask = mask
+        move(to: CGPoint(x: corner.x, y: corner.y))
+    }
+
+    /// Where the bubble is now, as distance from the right and bottom edges.
+    private var currentOffset: CGPoint {
+        guard let window = superview else { return .zero }
+        return CGPoint(x: window.bounds.width - frame.maxX, y: window.bounds.height - frame.maxY)
     }
 
     private func clamp(_ point: CGPoint) -> CGPoint {
@@ -353,20 +506,19 @@ final class ChatBubbleView: UIView {
         let insets = window.safeAreaInsets
         let bounds = window.bounds
         return CGPoint(
-            x: max(insets.right + 8, min(bounds.width - Self.size - insets.left - 8, point.x)),
-            y: max(insets.bottom + 8, min(bounds.height - Self.size - insets.top - 8, point.y))
+            x: max(insets.right + 8, min(bounds.width - size - insets.left - 8, point.x)),
+            y: max(insets.bottom + 8, min(bounds.height - size - insets.top - 8, point.y))
         )
     }
 
     private func move(to point: CGPoint) {
         guard let window = superview else { return }
         let next = clamp(point)
-        offset = next
         frame = CGRect(
-            x: window.bounds.width - next.x - Self.size,
-            y: window.bounds.height - next.y - Self.size,
-            width: Self.size,
-            height: Self.size
+            x: window.bounds.width - next.x - size,
+            y: window.bounds.height - next.y - size,
+            width: size,
+            height: size
         )
     }
 
@@ -374,13 +526,16 @@ final class ChatBubbleView: UIView {
         onTap()
     }
 
-    @objc private func dragged(_ gesture: UIPanGestureRecognizer) {
+    @objc private func handleDrag(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
         case .began:
-            dragStart = offset ?? .zero
+            dragStart = currentOffset
+            autoresizingMask = [.flexibleLeftMargin, .flexibleTopMargin]
         case .changed:
             let moved = gesture.translation(in: superview)
-            move(to: CGPoint(x: dragStart.x - moved.x, y: dragStart.y - moved.y))
+            let next = clamp(CGPoint(x: dragStart.x - moved.x, y: dragStart.y - moved.y))
+            dragged = next
+            move(to: next)
         case .ended, .cancelled:
             saveOffset()
         default:
@@ -399,8 +554,8 @@ final class ChatBubbleView: UIView {
     }
 
     private func saveOffset() {
-        guard let offset,
-              let data = try? JSONSerialization.data(withJSONObject: ["x": Double(offset.x), "y": Double(offset.y)]),
+        guard let dragged,
+              let data = try? JSONSerialization.data(withJSONObject: ["x": Double(dragged.x), "y": Double(dragged.y)]),
               let raw = String(data: data, encoding: .utf8)
         else { return }
         UserDefaults.standard.set(raw, forKey: ChatRules.positionKey(appId))

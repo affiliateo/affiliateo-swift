@@ -102,4 +102,68 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertNil(ChatRules.parseHostMessage(#"{"type":"something-else"}"#))
         XCTAssertNil(ChatRules.parseHostMessage(42))
     }
+
+    // The website's bubble-options.test.ts cases: a bubble must show on the
+    // same pages and screens everywhere.
+    func testPageRules() {
+        let cases: [(String, String, Bool)] = [
+            ("/pricing", "/pricing", true),
+            ("/pricing", "/Pricing/", true),
+            ("/pricing", "/pricing/plans", false),
+            ("/blog/*", "/blog/my-post", true),
+            ("/blog/*", "/blog/", true),
+            ("/blog/*", "/blog", true),
+            ("/blog/*", "/blogger", false),
+            ("/*", "/", true),
+            ("/blog*", "/blog", true),
+            ("*/checkout", "/shop/checkout", true),
+            ("/", "/", true),
+            ("/", "/about", false),
+            ("Settings", "settings", true),
+            ("Paywall*", "PaywallAnnual", true),
+            ("Paywall*", "Home", false),
+            ("/a.b", "/axb", false),
+            ("/(x)", "/(x)", true),
+            ("", "/", false),
+            ("   ", "/", false),
+        ]
+        for (rule, place, expected) in cases {
+            XCTAssertEqual(ChatRules.pageRuleMatches(rule, place), expected, "\(rule) against \(place)")
+        }
+    }
+
+    func testBubbleShowsOn() {
+        let rules = ["/checkout*", "Paywall*"]
+        XCTAssertTrue(ChatRules.bubbleShowsOn(mode: "all", rules: rules, place: "/checkout"))
+        XCTAssertTrue(ChatRules.bubbleShowsOn(mode: "all", rules: [], place: nil))
+        XCTAssertTrue(ChatRules.bubbleShowsOn(mode: "only", rules: rules, place: "/checkout/step-2"))
+        XCTAssertFalse(ChatRules.bubbleShowsOn(mode: "only", rules: rules, place: "/home"))
+        XCTAssertFalse(ChatRules.bubbleShowsOn(mode: "only", rules: rules, place: nil))
+        XCTAssertFalse(ChatRules.bubbleShowsOn(mode: "except", rules: rules, place: "PaywallYearly"))
+        XCTAssertTrue(ChatRules.bubbleShowsOn(mode: "except", rules: rules, place: "Home"))
+        XCTAssertTrue(ChatRules.bubbleShowsOn(mode: "except", rules: rules, place: nil))
+    }
+
+    func testBubbleConfig() {
+        let json = #"{"enabled":true,"show_bubble":true,"online":false,"bubble":{"position":"top-left","size":"large","size_points":64,"page_mode":"except","page_rules":["Paywall*",3],"greeting_id":"e40c292c"}}"#
+        let config = ChatRules.parseConfig(Data(json.utf8))
+        XCTAssertEqual(config.bubble.position, "top-left")
+        XCTAssertEqual(config.bubble.size, 64)
+        XCTAssertEqual(config.bubble.pageMode, "except")
+        XCTAssertEqual(config.bubble.pageRules, ["Paywall*"])
+        XCTAssertEqual(config.bubble.greetingId, "e40c292c")
+        // An older server, or odd values: the old fixed bubble.
+        let plain = ChatRules.parseConfig(Data(#"{"enabled":true,"show_bubble":true,"bubble":{"position":"middle","size_points":500,"page_mode":"x"}}"#.utf8))
+        XCTAssertEqual(plain.bubble, ChatRules.Bubble.standard)
+    }
+
+    func testCornerOffset() {
+        let insets = (top: 59.0, bottom: 34.0, left: 0.0, right: 0.0)
+        let br = ChatRules.cornerOffset(position: "bottom-right", size: 56, width: 440, height: 956, insets: insets)
+        XCTAssertEqual(br.x, 20)
+        XCTAssertEqual(br.y, 54)
+        let tl = ChatRules.cornerOffset(position: "top-left", size: 48, width: 440, height: 956, insets: insets)
+        XCTAssertEqual(tl.x, 440 - 48 - 20)
+        XCTAssertEqual(tl.y, 956 - 48 - 20 - 59)
+    }
 }

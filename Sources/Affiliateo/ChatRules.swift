@@ -35,8 +35,28 @@ enum ChatRules {
         let showBubble: Bool
         /// Someone on the business's team is online right now.
         let online: Bool
+        /// The owner's corner, size and screens for the bubble.
+        var bubble: Bubble = .standard
 
         static let off = Config(enabled: false, showBubble: false, online: false)
+    }
+
+    /// The owner's say over the bubble (the website's
+    /// lib/live-chat/bubble-options.ts; KEEP IN STEP).
+    struct Bubble: Equatable {
+        /// bottom-right, bottom-left, top-right or top-left.
+        var position = "bottom-right"
+        /// The circle, in points: 48, 56 or 64.
+        var size: Double = 56
+        /// all, only or except.
+        var pageMode = "all"
+        /// Screen names, `*` matching anything.
+        var pageRules: [String] = []
+        /// Set when the greeting counts as one unread message until the chat
+        /// is first opened; a new greeting has a new id.
+        var greetingId: String?
+
+        static let standard = Bubble()
     }
 
     /// What the chat page tells the app (window.webkit.messageHandlers.affiliateoChat).
@@ -55,6 +75,7 @@ enum ChatRules {
 
     static func tokenKey(_ appId: String) -> String { "affiliateo_chat_token_\(appId)" }
     static func positionKey(_ appId: String) -> String { "affiliateo_chat_pos_\(appId)" }
+    static func greetingKey(_ appId: String) -> String { "affiliateo_chat_greeting_seen_\(appId)" }
 
     // MARK: The token
 
@@ -76,7 +97,74 @@ enum ChatRules {
         return Config(
             enabled: true,
             showBubble: json["show_bubble"] as? Bool == true,
-            online: json["online"] as? Bool == true
+            online: json["online"] as? Bool == true,
+            bubble: parseBubble(json["bubble"])
+        )
+    }
+
+    /// The config's `bubble`, anything missing or odd read as the old fixed bubble.
+    static func parseBubble(_ raw: Any?) -> Bubble {
+        guard let b = raw as? [String: Any] else { return .standard }
+        var bubble = Bubble()
+        if let position = b["position"] as? String, ["bottom-left", "top-right", "top-left"].contains(position) {
+            bubble.position = position
+        }
+        if let size = b["size_points"] as? Double, size >= 40, size <= 80 { bubble.size = size }
+        if let mode = b["page_mode"] as? String, mode == "only" || mode == "except" { bubble.pageMode = mode }
+        bubble.pageRules = (b["page_rules"] as? [Any])?.compactMap { $0 as? String } ?? []
+        if let id = b["greeting_id"] as? String, !id.isEmpty { bubble.greetingId = id }
+        return bubble
+    }
+
+    // MARK: Which screens
+
+    /// A name compared without case and without a trailing slash ("/" stays).
+    private static func comparable(_ value: String) -> String {
+        let v = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return v.count > 1 && v.hasSuffix("/") ? String(v.dropLast()) : v
+    }
+
+    /// Whether one rule matches the current screen (the name the app last
+    /// passed to `page(_:)`). `*` matches any run of characters; a rule ending
+    /// in "/*" also matches the part in front of it.
+    static func pageRuleMatches(_ rule: String, _ place: String) -> Bool {
+        let r = comparable(rule)
+        guard !r.isEmpty else { return false }
+        let p = comparable(place)
+        if r.hasSuffix("/*") {
+            let front = String(r.dropLast(2))
+            if comparable(front.isEmpty ? "/" : front) == p { return true }
+        }
+        let pattern = r.components(separatedBy: "*").map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: ".*")
+        guard let regex = try? NSRegularExpression(pattern: "^\(pattern)$", options: [.dotMatchesLineSeparators]) else { return false }
+        return regex.firstMatch(in: p, range: NSRange(p.startIndex..<p.endIndex, in: p)) != nil
+    }
+
+    /// Whether the bubble shows on this screen. An unknown screen (nil, an
+    /// app that never called `page(_:)`) shows nothing under "only" and the
+    /// bubble under "except".
+    static func bubbleShowsOn(mode: String, rules: [String], place: String?) -> Bool {
+        guard mode == "only" || mode == "except" else { return true }
+        let hit = place.map { place in rules.contains { pageRuleMatches($0, place) } } ?? false
+        return mode == "only" ? hit : !hit
+    }
+
+    /// Where the bubble sits before anyone drags it: its distance from the
+    /// right and bottom edges of the window.
+    static func cornerOffset(
+        position: String,
+        size: Double,
+        width: Double,
+        height: Double,
+        insets: (top: Double, bottom: Double, left: Double, right: Double),
+        margin: Double = 20
+    ) -> (x: Double, y: Double) {
+        let parts = position.split(separator: "-").map(String.init)
+        let top = parts.first == "top"
+        let left = parts.last == "left"
+        return (
+            x: left ? width - size - margin - insets.left : margin + insets.right,
+            y: top ? height - size - margin - insets.top : margin + insets.bottom
         )
     }
 

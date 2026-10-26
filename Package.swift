@@ -11,7 +11,12 @@
 //   web view, full screen. Nothing shows until the app calls one of them, nor
 //   while the business has the chat off for the app. The bubble shows unread
 //   replies and whether the team is online; chatAvailable() answers whether
-//   the chat is on, hideChatBubble() takes the bubble away. iOS only.
+//   the chat is on, hideChatBubble() takes the bubble away. The owner picks,
+//   per app in the dashboard, the corner it starts in, its size, a greeting
+//   that counts as one unread message until the chat is first opened, and the
+//   screens it shows on (matched against the names sent with page(_:)). The
+//   red number is live while the app is open (a socket on the thread). iOS
+//   only.
 // 4.13.0: the App Store's own price for the app's products. Once a day, in
 //   the background, a phone on the US App Store reads the products
 //   Affiliateo asks about (StoreKit 2, the product's own price, never an
