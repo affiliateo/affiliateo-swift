@@ -1,9 +1,17 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.13.0
+// SDK version: 4.14.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.14.0: Live Chat. Affiliateo.showChatBubble() draws a draggable chat
+//   bubble over the app's screens and Affiliateo.openChat() opens the chat
+//   from the app's own button; the business answers from the Live Chat inbox
+//   in its dashboard. The chat screen is Affiliateo's hosted chat page in a
+//   web view, full screen. Nothing shows until the app calls one of them, nor
+//   while the business has the chat off for the app. The bubble shows unread
+//   replies and whether the team is online; chatAvailable() answers whether
+//   the chat is on, hideChatBubble() takes the bubble away. iOS only.
 // 4.13.0: the App Store's own price for the app's products. Once a day, in
 //   the background, a phone on the US App Store reads the products
 //   Affiliateo asks about (StoreKit 2, the product's own price, never an

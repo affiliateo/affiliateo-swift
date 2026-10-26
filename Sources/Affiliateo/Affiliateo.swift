@@ -234,6 +234,12 @@ public final class AffiliateoManager: ObservableObject {
         guard !started else { return }
         started = true
 
+        // Live Chat calls the app made before the provider was up (4.14.0).
+        // The chat works while opted out too; it only leaves the ids out.
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.managerStarted() }
+        #endif
+
         // Opted-out fast path. Skip identify + foreground ping entirely.
         // The state is published with isLoading=false so any host UI
         // gated on it (e.g. a paywall waiting for the matched? check)
@@ -919,6 +925,27 @@ public final class AffiliateoManager: ObservableObject {
         )
     }
 
+    // MARK: Live Chat (4.14.0)
+
+    /// What Live Chat (Chat.swift) needs to know about this install. The ids
+    /// are labels for the business's inbox, and the chat page leaves them out
+    /// while opted out.
+    func chatEnv() -> ChatRules.Env {
+        ChatRules.Env(
+            appId: campaignId,
+            apiUrl: apiUrl,
+            deviceId: deviceId,
+            visitorId: state.visitorId,
+            userId: userId,
+            optedOut: isOptedOut,
+            debug: debug
+        )
+    }
+
+    func chatLog(_ msg: String) {
+        log("chat: \(msg)")
+    }
+
     deinit {
         NotificationCenter.default.removeObserver(self)
         // Persist any in-flight queue state and stop background timers.
@@ -1017,6 +1044,58 @@ public enum Affiliateo {
     /// `AffiliateoManager.flush` for full doc.
     public static func flush() async {
         await AffiliateoManager.shared?.flush()
+    }
+
+    // MARK: Live Chat (4.14.0)
+
+    /// Show the Live Chat bubble on every screen (4.14.0). People tap it to
+    /// chat with you in real time; you answer from the Live Chat inbox in
+    /// your Affiliateo dashboard. It shows only while Live Chat is switched on
+    /// for this app there, and remembers where the person dragged it.
+    ///
+    /// ```swift
+    /// AffiliateoProvider(appId: "YOUR_APP_ID") {
+    ///     ContentView()
+    ///         .onAppear { Affiliateo.showChatBubble() }
+    /// }
+    /// ```
+    ///
+    /// Nothing shows until the app calls this or `openChat()`, so the App
+    /// Store reviewer sees every feature the app has. iPhone and iPad only.
+    public static func showChatBubble() {
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.showBubble() }
+        #endif
+    }
+
+    /// Take the chat bubble away again (4.14.0).
+    public static func hideChatBubble() {
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.hideBubble() }
+        #endif
+    }
+
+    /// Open the chat from your own button (4.14.0), over whatever is on
+    /// screen. Does nothing while Live Chat is off for this app (with
+    /// `debug: true` it says so in the console).
+    ///
+    /// ```swift
+    /// Button("Chat with us") { Affiliateo.openChat() }
+    /// ```
+    public static func openChat() {
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.open() }
+        #endif
+    }
+
+    /// Whether Live Chat is on for this app right now (4.14.0), to show or
+    /// hide your own "Chat with us" button. Never throws: no answer is false.
+    public static func chatAvailable() async -> Bool {
+        #if os(iOS)
+        return await LiveChat.shared.available()
+        #else
+        return false
+        #endif
     }
 
     /// Report a purchase to the ad networks this app sends its sales to.
