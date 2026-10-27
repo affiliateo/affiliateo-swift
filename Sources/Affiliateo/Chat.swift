@@ -23,7 +23,8 @@ import WebKit
 /// The visitor's key to their thread (a token the server hands out with their
 /// first message) is kept in UserDefaults, the React Native SDK's choice too:
 /// a reinstall clears it and starts a new thread, which is what the server
-/// expects. The Keychain would carry it past a reinstall.
+/// expects. The Keychain would carry it past a reinstall. logout() drops it
+/// (4.14.2), so the next person on the phone starts a new thread too.
 @MainActor
 final class LiveChat {
     static let shared = LiveChat()
@@ -115,6 +116,19 @@ final class LiveChat {
         if wantsBubble, config != nil { placeBubble() }
     }
 
+    /// The person signed out (logout(), which has already dropped their token
+    /// from UserDefaults). Their red number, socket and open chat go too, so
+    /// whoever signs in next starts a new thread. The bubble's place and the
+    /// greeting seen belong to the phone, not the person: they stay.
+    func forget() {
+        stopSocket()
+        unreadCheckedAt = nil
+        setUnread(0)
+        // A token the closing page hands over late is not kept.
+        screen?.onToken = nil
+        screen?.dismiss(animated: true)
+    }
+
     // MARK: The server
 
     /// Whether the business has the chat on for this app. A network failure
@@ -162,7 +176,9 @@ final class LiveChat {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200,
-              let count = ChatRules.parseUnread(data)
+              let count = ChatRules.parseUnread(data),
+              // A sign-out while this was on its way: the count was the last person's.
+              storedToken(env.appId) == token
         else { return }
         // An open chat has just shown them everything.
         if screen == nil { setUnread(count) }
@@ -581,7 +597,7 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
     var onRead: (() -> Void)?
     var onClosed: (() -> Void)?
 
-    private let url: URL
+    private var url: URL
     private let apiUrl: String
     private let dark: Bool
     private let inspectable: Bool
@@ -629,6 +645,7 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
         ])
         webView = web
         web.load(URLRequest(url: url))
+        url = ChatRules.withoutFresh(url)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -687,8 +704,8 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
         return nil
     }
 
-    /// iOS ended the page's process (memory pressure): load it again. The
-    /// page keeps the thread's token in its own storage too.
+    /// iOS ended the page's process (memory pressure): load it again, without
+    /// `fresh=1`. The page keeps the thread's token in its own storage too.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         webView.load(URLRequest(url: url))
     }

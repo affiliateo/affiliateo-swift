@@ -185,6 +185,8 @@ enum ChatRules {
 
     /// The chat page for this app. The ids are left out while the person has
     /// opted out of tracking; the token goes in only when there is one.
+    /// Without one, `fresh=1` tells the page to drop a token it kept itself
+    /// (the last person's, after a sign-out) and start a new thread.
     static func chatURL(env: Env, token: String?, platform: String, language: String, theme: String?) -> URL? {
         var fragment = ["p=\(platform)", "close=1"]
         func add(_ key: String, _ value: String?) {
@@ -196,9 +198,18 @@ enum ChatRules {
             add("v", env.visitorId)
             add("u", env.userId)
         }
-        if isToken(token) { add("t", token) }
+        if isToken(token) { add("t", token) } else { fragment.append("fresh=1") }
         add("theme", theme)
         return URL(string: "\(base(env.apiUrl))/embed/chat/\(encode(env.appId))?lang=\(encode(language))#\(fragment.joined(separator: "&"))")
+    }
+
+    /// The same page without `fresh=1`. It is for the first load only: a
+    /// reload must keep the thread the page has started since.
+    static func withoutFresh(_ url: URL) -> URL {
+        let string = url.absoluteString
+        guard let hash = string.firstIndex(of: "#") else { return url }
+        let kept = string[string.index(after: hash)...].split(separator: "&").filter { $0 != "fresh=1" }
+        return URL(string: String(string[...hash]) + kept.joined(separator: "&")) ?? url
     }
 
     /// Whether the web view may load this address itself. Anything else is a

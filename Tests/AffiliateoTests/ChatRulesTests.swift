@@ -45,6 +45,7 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertEqual(parts["v"], "v_123")
         XCTAssertEqual(parts["u"], "user 1&2")
         XCTAssertEqual(parts["t"], token)
+        XCTAssertNil(parts["fresh"])
         XCTAssertEqual(parts["theme"], "dark")
         // The user id's & and space are escaped, not read as separators.
         XCTAssertTrue(url?.absoluteString.contains("u=user%201%262") ?? false)
@@ -62,6 +63,25 @@ final class ChatRulesTests: XCTestCase {
     func testNoTokenNoT() {
         XCTAssertNil(fragment(ChatRules.chatURL(env: env(), token: nil, platform: "ios", language: "en", theme: nil))["t"])
         XCTAssertNil(fragment(ChatRules.chatURL(env: env(), token: "lct_bad", platform: "ios", language: "en", theme: nil))["t"])
+    }
+
+    func testNoTokenAsksForAFreshThread() {
+        // After a sign-out the page must drop the token it kept itself.
+        XCTAssertEqual(fragment(ChatRules.chatURL(env: env(), token: nil, platform: "ios", language: "en", theme: nil))["fresh"], "1")
+        XCTAssertEqual(fragment(ChatRules.chatURL(env: env(), token: "lct_bad", platform: "ios", language: "en", theme: nil))["fresh"], "1")
+        XCTAssertEqual(fragment(ChatRules.chatURL(env: env(optedOut: true), token: nil, platform: "ios", language: "en", theme: nil))["fresh"], "1")
+        XCTAssertNil(fragment(ChatRules.chatURL(env: env(optedOut: true), token: token, platform: "ios", language: "en", theme: nil))["fresh"])
+    }
+
+    func testAReloadKeepsTheThreadTheFirstLoadStarted() {
+        let first = ChatRules.chatURL(env: env(), token: nil, platform: "ios", language: "en", theme: "dark")!
+        let again = ChatRules.withoutFresh(first)
+        XCTAssertNil(fragment(again)["fresh"])
+        XCTAssertEqual(fragment(again)["theme"], "dark")
+        XCTAssertEqual(fragment(again)["u"], "user 1&2")
+        XCTAssertEqual(again.absoluteString, first.absoluteString.replacingOccurrences(of: "&fresh=1", with: ""))
+        let withToken = ChatRules.chatURL(env: env(), token: token, platform: "ios", language: "en", theme: nil)!
+        XCTAssertEqual(ChatRules.withoutFresh(withToken), withToken)
     }
 
     func testOnlyTheChatPageLoadsInside() {

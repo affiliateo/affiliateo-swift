@@ -342,7 +342,8 @@ public final class AffiliateoManager: ObservableObject {
     /// over as a new anonymous customer of the app, so whoever signs in next
     /// (or nobody) is not counted as the person who just left, and
     /// everything already recorded stays with them. Forgets the stored user
-    /// id, their email hash and the saved free access answer.
+    /// id, their email hash, the saved free access answer and (4.14.2) their
+    /// Live Chat thread: the next person to open the chat starts a new one.
     ///
     /// Tracking carries on: same device id, same visitor id, same
     /// `appAccountToken`, nothing to relaunch. A sign-out made offline (or
@@ -352,6 +353,11 @@ public final class AffiliateoManager: ObservableObject {
         // Right away, not in the task: a freeAccess() that cannot reach the
         // server must not unlock from the person who just left.
         FreeAccessCache.clear()
+        // Nor may the chat open their thread (4.14.2).
+        UserDefaults.standard.removeObject(forKey: ChatRules.tokenKey(campaignId))
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.forget() }
+        #endif
         let task = Task { @MainActor in
             self.userId = nil
             self.syncedUser = nil
