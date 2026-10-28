@@ -1138,6 +1138,20 @@ public enum Affiliateo {
         #endif
     }
 
+    /// The chat's message box text (4.15.0), in your own words and language,
+    /// over the Live Chat settings in your dashboard: up to 60 characters.
+    /// Pass your app's own translation; nil goes back to the dashboard's.
+    ///
+    /// ```swift
+    /// Affiliateo.setChatPlaceholder(String(localized: "Ask us anything"))
+    /// ```
+    public static func setChatPlaceholder(_ text: String?) {
+        let clean = ChatRules.placeholder(text)
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.setPlaceholder(clean) }
+        #endif
+    }
+
     /// Take the chat bubble away again (4.14.0).
     public static func hideChatBubble() {
         #if os(iOS)

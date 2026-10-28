@@ -214,6 +214,14 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertNil(ChatRules.hex("purple"))
     }
 
+    func testTheBoxTextSetInCodeGoesToTheChatPage() {
+        let parts = fragment(ChatRules.chatURL(env: env(), token: nil, platform: "ios", language: "es", theme: nil, placeholder: ChatRules.placeholder("  Pregúntanos\n lo que sea ")))
+        XCTAssertEqual(parts["ph"], "Pregúntanos lo que sea")
+        XCTAssertNil(ChatRules.placeholder("   "))
+        XCTAssertEqual(ChatRules.placeholder(String(repeating: "a", count: 80))?.count, 60)
+        XCTAssertNil(fragment(ChatRules.chatURL(env: env(), token: nil, platform: "ios", language: "en", theme: nil))["ph"])
+    }
+
     func testTheSendColorSetInCodeGoesToTheChatPage() {
         let parts = fragment(ChatRules.chatURL(env: env(), token: nil, platform: "ios", language: "en", theme: nil, sendColor: "#007aff"))
         XCTAssertEqual(parts["sc"], "#007aff")

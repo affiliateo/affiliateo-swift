@@ -49,6 +49,8 @@ final class LiveChat {
     private var bottomPadding: CGFloat = 0
     /// The app's own look for the bubble (setChatBubbleLook), over the dashboard's.
     private var look = ChatRules.BubbleLook()
+    /// The app's own message box text (setChatPlaceholder), over the dashboard's.
+    private var placeholder: String?
 
     // The live socket on the thread, for the red number.
     private var socket: URLSessionWebSocketTask?
@@ -91,6 +93,10 @@ final class LiveChat {
     func setLook(_ next: ChatRules.BubbleLook) {
         look = next
         placeBubble()
+    }
+
+    func setPlaceholder(_ text: String?) {
+        placeholder = text
     }
 
     func setBottomPadding(_ points: CGFloat) {
@@ -382,7 +388,8 @@ final class LiveChat {
             platform: "ios",
             language: Locale.preferredLanguages.first ?? "en",
             theme: dark ? "dark" : "light",
-            sendColor: look.sendColor
+            sendColor: look.sendColor,
+            placeholder: placeholder
         ) else { return }
         let appId = env.appId
         let controller = ChatViewController(url: url, apiUrl: env.apiUrl, dark: dark, inspectable: env.debug)

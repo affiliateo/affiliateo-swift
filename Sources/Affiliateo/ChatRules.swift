@@ -161,6 +161,13 @@ enum ChatRules {
         return b
     }
 
+    /// The message box text as the code may pass it: on one line, trimmed,
+    /// up to 60 characters; nil when empty.
+    static func placeholder(_ text: String?) -> String? {
+        let clean = (text ?? "").split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        return clean.isEmpty ? nil : String(clean.prefix(60))
+    }
+
     /// A color as the code may write it ("#7C3AED", "7c3aed", "#fa0") as
     /// #rrggbb, lowercase; nil for anything else.
     static func hex(_ value: String) -> String? {
@@ -242,7 +249,7 @@ enum ChatRules {
     /// opted out of tracking; the token goes in only when there is one.
     /// Without one, `fresh=1` tells the page to drop a token it kept itself
     /// (the last person's, after a sign-out) and start a new thread.
-    static func chatURL(env: Env, token: String?, platform: String, language: String, theme: String?, sendColor: String? = nil) -> URL? {
+    static func chatURL(env: Env, token: String?, platform: String, language: String, theme: String?, sendColor: String? = nil, placeholder: String? = nil) -> URL? {
         // sheet=1: the page slides up as a sheet (4.15.0) and keeps room for its handle.
         var fragment = ["p=\(platform)", "close=1", "sheet=1"]
         func add(_ key: String, _ value: String?) {
@@ -259,6 +266,8 @@ enum ChatRules {
         // The send color the app's own code set (the page colors the send
         // arrow and the person's messages with it, over the dashboard's).
         if let sendColor { add("sc", sendColor) }
+        // The message box text the app's own code set, in its own language.
+        if let placeholder { add("ph", placeholder) }
         return URL(string: "\(base(env.apiUrl))/embed/chat/\(encode(env.appId))?lang=\(encode(language))#\(fragment.joined(separator: "&"))")
     }
 
