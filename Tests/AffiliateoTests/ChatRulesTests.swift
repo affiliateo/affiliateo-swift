@@ -187,6 +187,14 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertEqual(tl.y, 956 - 48 - 20 - 59)
     }
 
+    func testGlassStyle() {
+        let glass = ChatRules.parseConfig(Data(#"{"enabled":true,"bubble":{"style":"glass"}}"#.utf8))
+        XCTAssertEqual(glass.bubble.style, "glass")
+        // Anything else, or a server from before the style, is the blue circle.
+        XCTAssertEqual(ChatRules.parseConfig(Data(#"{"enabled":true,"bubble":{"style":"neon"}}"#.utf8)).bubble.style, "standard")
+        XCTAssertEqual(ChatRules.parseConfig(Data(#"{"enabled":true,"bubble":{}}"#.utf8)).bubble.style, "standard")
+    }
+
     func testSizesAndBadges() {
         let auto = ChatRules.parseConfig(Data(#"{"enabled":true,"bubble":{"size":"auto","size_points":56,"size_points_phone":48}}"#.utf8))
         XCTAssertEqual(auto.bubble.size, 56)

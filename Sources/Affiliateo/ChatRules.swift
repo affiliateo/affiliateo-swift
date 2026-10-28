@@ -57,6 +57,9 @@ enum ChatRules {
         /// Set when the greeting counts as one unread message until the chat
         /// is first opened; a new greeting has a new id.
         var greetingId: String?
+        /// "standard" (the blue circle) or "glass" (Liquid Glass on iOS 26
+        /// and later, frosted glass before).
+        var style = "standard"
 
         static let standard = Bubble()
     }
@@ -78,6 +81,9 @@ enum ChatRules {
     static func tokenKey(_ appId: String) -> String { "affiliateo_chat_token_\(appId)" }
     static func positionKey(_ appId: String) -> String { "affiliateo_chat_pos_\(appId)" }
     static func greetingKey(_ appId: String) -> String { "affiliateo_chat_greeting_seen_\(appId)" }
+    /// The server's last answer about the chat (4.15.0): the bubble shows from
+    /// it at once on the next launch while a fresh one is asked for.
+    static func configKey(_ appId: String) -> String { "affiliateo_chat_config_\(appId)" }
 
     // MARK: The token
 
@@ -119,6 +125,7 @@ enum ChatRules {
         if let mode = b["page_mode"] as? String, mode == "only" || mode == "except" { bubble.pageMode = mode }
         bubble.pageRules = (b["page_rules"] as? [Any])?.compactMap { $0 as? String } ?? []
         if let id = b["greeting_id"] as? String, !id.isEmpty { bubble.greetingId = id }
+        if b["style"] as? String == "glass" { bubble.style = "glass" }
         return bubble
     }
 
@@ -188,7 +195,8 @@ enum ChatRules {
     /// Without one, `fresh=1` tells the page to drop a token it kept itself
     /// (the last person's, after a sign-out) and start a new thread.
     static func chatURL(env: Env, token: String?, platform: String, language: String, theme: String?) -> URL? {
-        var fragment = ["p=\(platform)", "close=1"]
+        // sheet=1: the page slides up as a sheet (4.15.0) and keeps room for its handle.
+        var fragment = ["p=\(platform)", "close=1", "sheet=1"]
         func add(_ key: String, _ value: String?) {
             guard let value, !value.isEmpty else { return }
             fragment.append("\(key)=\(encode(value))")

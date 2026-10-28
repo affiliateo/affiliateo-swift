@@ -44,6 +44,9 @@ final class LiveChat {
     private var inFront = true
     private var bubble: ChatBubbleView?
     private weak var screen: ChatViewController?
+    /// Points the app keeps free above the bottom safe area (its tab bar or
+    /// floating button), set with Affiliateo.setChatBubblePadding(bottom:).
+    private var bottomPadding: CGFloat = 0
 
     // The live socket on the thread, for the red number.
     private var socket: URLSessionWebSocketTask?
@@ -66,12 +69,27 @@ final class LiveChat {
         wantsBubble = true
         observeForeground()
         // Placed once AffiliateoProvider starts (managerStarted).
-        guard env != nil else { return }
+        guard let env else { return }
+        // At once from the last answer this phone kept, then checked with the
+        // server (turned off there, it goes away again).
+        if config == nil, let data = UserDefaults.standard.data(forKey: ChatRules.configKey(env.appId)) {
+            let saved = ChatRules.parseConfig(data)
+            if saved.enabled {
+                config = saved
+                placeBubble()
+            }
+        }
         Task {
-            await refreshConfig(force: config == nil)
+            await refreshConfig(force: configCheckedAt == nil)
             placeBubble()
             await refreshUnread(force: true)
         }
+    }
+
+    func setBottomPadding(_ points: CGFloat) {
+        bottomPadding = max(0, min(points, 400))
+        bubble?.bottomPadding = bottomPadding
+        bubble?.place()
     }
 
     func hideBubble() {
@@ -146,7 +164,9 @@ final class LiveChat {
         let task = Task<ChatRules.Config, Never> {
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
-                return (response as? HTTPURLResponse)?.statusCode == 200 ? ChatRules.parseConfig(data) : .off
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else { return .off }
+                UserDefaults.standard.set(data, forKey: ChatRules.configKey(env.appId))
+                return ChatRules.parseConfig(data)
             } catch {
                 self.log("config check failed (network)")
                 return self.config ?? .off
@@ -251,13 +271,15 @@ final class LiveChat {
         guard let window = Self.hostWindow() else { return }
         // An iPhone gets the owner's phone size ("auto" makes it smaller), an iPad the other.
         let size = CGFloat(UIDevice.current.userInterfaceIdiom == .phone ? style.sizePhone : style.size)
-        if let existing = bubble, existing.size != size {
+        let glass = style.style == "glass"
+        if let existing = bubble, existing.size != size || existing.glass != glass {
             existing.removeFromSuperview()
             bubble = nil
         }
-        let view = bubble ?? ChatBubbleView(appId: env.appId, size: size) { LiveChat.shared.open() }
+        let view = bubble ?? ChatBubbleView(appId: env.appId, size: size, glass: glass) { LiveChat.shared.open() }
         bubble = view
         view.position = style.position
+        view.bottomPadding = bottomPadding
         if view.superview !== window {
             view.removeFromSuperview()
             window.addSubview(view)
@@ -367,6 +389,13 @@ final class LiveChat {
         greetingPending = false
         stopSocket()
         bubble?.isHidden = true
+        // A sheet that slides up over the app (4.15.0), with its handle; pulled
+        // down, or the page's close button, closes it.
+        controller.modalPresentationStyle = .pageSheet
+        if let sheet = controller.sheetPresentationController {
+            sheet.detents = [.large()]
+            sheet.prefersGrabberVisible = true
+        }
         presenter.present(controller, animated: true)
     }
 
@@ -409,8 +438,13 @@ final class ChatBubbleView: UIView {
 
     /// The circle, in points.
     let size: CGFloat
+    /// The owner's "Glass" style: Liquid Glass on iOS 26 and later, frosted glass before.
+    let glass: Bool
     /// The owner's corner: bottom-right, bottom-left, top-right or top-left.
     var position = "bottom-right"
+    /// Points the app keeps free above the bottom safe area: the bubble starts
+    /// above them and is never dragged into them.
+    var bottomPadding: CGFloat = 0
 
     private let appId: String
     private let onTap: () -> Void
@@ -425,25 +459,30 @@ final class ChatBubbleView: UIView {
     private var dragged: CGPoint?
     private var dragStart: CGPoint = .zero
 
-    init(appId: String, size: CGFloat, onTap: @escaping () -> Void) {
+    init(appId: String, size: CGFloat, glass: Bool = false, onTap: @escaping () -> Void) {
         self.appId = appId
         self.size = size
+        self.glass = glass
         self.onTap = onTap
         self.badge = ChatRules.badgeMetrics(size: Double(size))
         super.init(frame: CGRect(x: 0, y: 0, width: size, height: size))
 
         layer.cornerRadius = size / 2
-        backgroundColor = UIColor(red: 0x17 / 255, green: 0x54 / 255, blue: 0xD8 / 255, alpha: 1)
-        layer.shadowColor = backgroundColor?.cgColor
-        layer.shadowOpacity = 0.3
-        layer.shadowRadius = 8
-        layer.shadowOffset = CGSize(width: 0, height: 4)
+        if glass {
+            addGlass()
+        } else {
+            backgroundColor = Self.brand
+            layer.shadowColor = backgroundColor?.cgColor
+            layer.shadowOpacity = 0.3
+            layer.shadowRadius = 8
+            layer.shadowOffset = CGSize(width: 0, height: 4)
 
-        art.frame = bounds
-        art.layer.cornerRadius = size / 2
-        art.clipsToBounds = true
-        if let data = ChatBubbleImage.pngData { art.image = UIImage(data: data, scale: 3) }
-        addSubview(art)
+            art.frame = bounds
+            art.layer.cornerRadius = size / 2
+            art.clipsToBounds = true
+            if let data = ChatBubbleImage.pngData { art.image = UIImage(data: data, scale: 3) }
+            addSubview(art)
+        }
 
         pill.backgroundColor = UIColor(red: 0xEF / 255, green: 0x44 / 255, blue: 0x44 / 255, alpha: 1)
         pill.textColor = .white
@@ -477,6 +516,64 @@ final class ChatBubbleView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    static let brand = UIColor(red: 0x17 / 255, green: 0x54 / 255, blue: 0xD8 / 255, alpha: 1)
+
+    /// The "Glass" style: the screen shows through a blue-tinted glass circle
+    /// (Liquid Glass on iOS 26 and later, which also answers a press; frosted
+    /// glass before), with the white speech bubble on top.
+    private func addGlass() {
+        backgroundColor = .clear
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOpacity = 0.18
+        layer.shadowRadius = 10
+        layer.shadowOffset = CGSize(width: 0, height: 4)
+
+        let effect: UIVisualEffectView
+        if #available(iOS 26.0, *) {
+            let liquid = UIGlassEffect()
+            liquid.tintColor = Self.brand.withAlphaComponent(0.6)
+            liquid.isInteractive = true
+            effect = UIVisualEffectView(effect: liquid)
+            effect.cornerConfiguration = .capsule()
+        } else {
+            effect = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
+            let tint = UIView(frame: bounds)
+            tint.backgroundColor = Self.brand.withAlphaComponent(0.6)
+            tint.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            effect.contentView.addSubview(tint)
+            effect.layer.cornerRadius = size / 2
+            effect.layer.borderWidth = 1
+            effect.layer.borderColor = UIColor.white.withAlphaComponent(0.45).cgColor
+            effect.clipsToBounds = true
+        }
+        effect.frame = bounds
+        addSubview(effect)
+
+        let glyph = CAShapeLayer()
+        glyph.path = Self.speechBubble(in: size).cgPath
+        glyph.fillColor = UIColor.white.cgColor
+        effect.contentView.layer.addSublayer(glyph)
+    }
+
+    /// The website bubble's speech bubble (public/chat.js, a 24-point drawing)
+    /// filling 60% of the circle.
+    static func speechBubble(in size: CGFloat) -> UIBezierPath {
+        let scale = size * 0.6 / 24
+        let inset = size * 0.2
+        let p = { (x: CGFloat, y: CGFloat) in CGPoint(x: inset + x * scale, y: inset + y * scale) }
+        let path = UIBezierPath()
+        path.move(to: p(12, 2.5))
+        path.addCurve(to: p(21.5, 11.25), controlPoint1: p(17.25, 2.5), controlPoint2: p(21.5, 6.4))
+        path.addCurve(to: p(12, 20), controlPoint1: p(21.5, 16.1), controlPoint2: p(17.25, 20))
+        path.addCurve(to: p(8.87, 19.52), controlPoint1: p(10.9, 20), controlPoint2: p(9.85, 19.83))
+        path.addCurve(to: p(3.05, 21.45), controlPoint1: p(7.3, 20.9), controlPoint2: p(5.2, 21.55))
+        path.addCurve(to: p(5.45, 17.85), controlPoint1: p(4.35, 20.55), controlPoint2: p(5.2, 19.3))
+        path.addCurve(to: p(2.5, 11.25), controlPoint1: p(3.6, 16.25), controlPoint2: p(2.5, 13.87))
+        path.addCurve(to: p(12, 2.5), controlPoint1: p(2.5, 6.4), controlPoint2: p(6.75, 2.5))
+        path.close()
+        return path
+    }
+
     func update(unread: Int, online: Bool) {
         if let text = ChatRules.badgeText(unread) {
             pill.text = text
@@ -508,7 +605,7 @@ final class ChatBubbleView: UIView {
             size: Double(size),
             width: Double(window.bounds.width),
             height: Double(window.bounds.height),
-            insets: (Double(insets.top), Double(insets.bottom), Double(insets.left), Double(insets.right)),
+            insets: (Double(insets.top), Double(insets.bottom + bottomPadding), Double(insets.left), Double(insets.right)),
             margin: Double(Self.margin)
         )
         // Keeps the corner when the window turns or resizes.
@@ -531,7 +628,7 @@ final class ChatBubbleView: UIView {
         let bounds = window.bounds
         return CGPoint(
             x: max(insets.right + 8, min(bounds.width - size - insets.left - 8, point.x)),
-            y: max(insets.bottom + 8, min(bounds.height - size - insets.top - 8, point.y))
+            y: max(insets.bottom + bottomPadding + 8, min(bounds.height - size - insets.top - 8, point.y))
         )
     }
 

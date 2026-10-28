@@ -221,6 +221,9 @@ let available = await Affiliateo.chatAvailable()
 
 // Take the bubble away again
 Affiliateo.hideChatBubble()
+
+// Keep it above your own tab bar or floating button (4.15.0)
+Affiliateo.setChatBubblePadding(bottom: 72)
 ```
 
 - Nothing shows until your code calls `showChatBubble()` or `openChat()`, so
@@ -229,16 +232,18 @@ Affiliateo.hideChatBubble()
 - The bubble sits on top of your screens (a sheet you present covers it).
   People can drag it and it stays where they leave it. It shows a red number
   for replies they have not read, live while the app is open, and a green dot
-  while someone on your team is online. If you chose "only while someone is
-  online", it hides while nobody is.
+  while someone on your team is online. On launch it shows at once from the
+  last answer the phone kept, then checks with the server (4.15.0).
 - In the Live Chat settings of your dashboard you choose, per app, the corner
-  it starts in, its size, a greeting that shows as one unread message (a red
+  it starts in, its size, its style (the blue circle, or "Glass": Liquid Glass
+  on iOS 26 and later, 4.15.0), a greeting that shows as one unread message (a red
   1) until the person first opens the chat, and the screens it shows on.
   Screen rules match the names you send with `Affiliateo.page(_:)` or
   `.trackedScreen(_:)` (`Settings`, `Paywall*`), so send them if you use
   rules.
-- The chat screen is Affiliateo's hosted chat page, full screen and in the
-  person's language. Links you send open in Safari.
+- The chat screen is Affiliateo's hosted chat page in the person's language,
+  in a sheet that slides up over the app (4.15.0; it was full screen). Pulled
+  down or the page's close button closes it. Links you send open in Safari.
 - The person needs no account. Their first message opens a thread, and the
   key to it is kept on the phone (deleting the app starts a new thread). Your
   inbox labels the thread with the device, the Affiliateo visitor and, after

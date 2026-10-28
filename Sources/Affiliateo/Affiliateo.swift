@@ -1078,6 +1078,19 @@ public enum Affiliateo {
         #endif
     }
 
+    /// Keep the chat bubble above your app's own bottom bar (4.15.0): a tab
+    /// bar or a floating button. The bubble starts this many points above the
+    /// bottom of the safe area and is never dragged below them.
+    ///
+    /// ```swift
+    /// Affiliateo.setChatBubblePadding(bottom: 72)
+    /// ```
+    public static func setChatBubblePadding(bottom: CGFloat) {
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.setBottomPadding(bottom) }
+        #endif
+    }
+
     /// Take the chat bubble away again (4.14.0).
     public static func hideChatBubble() {
         #if os(iOS)

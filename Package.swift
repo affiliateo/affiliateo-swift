@@ -1,9 +1,17 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.14.1
+// SDK version: 4.15.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.15.0: Live Chat opens as a sheet that slides up over the app (with its
+//   handle; pulled down or the page's close button closes it), and the
+//   owner's new "Glass" bubble style: Liquid Glass on iOS 26 and later,
+//   frosted glass before. setChatBubblePadding(bottom:) keeps the bubble
+//   above the app's own tab bar or floating button. The bubble shows at once
+//   on launch from the last answer the phone kept, then checks the server.
+// 4.14.2: logout() forgets the person's chat, so the next person on the
+//   phone starts a new thread; the speech bubble fills 60% of the circle.
 // 4.14.1: Live Chat's "auto" bubble size: small on an iPhone, medium on an
 //   iPad, the size a new app starts with. The red number and the green dot
 //   now scale with the bubble, so a small bubble keeps the same look.
