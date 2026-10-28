@@ -382,7 +382,7 @@ final class LiveChat {
             platform: "ios",
             language: Locale.preferredLanguages.first ?? "en",
             theme: dark ? "dark" : "light",
-            colors: look.color != nil || look.iconColor != nil ? (look.color ?? config?.bubble.color ?? "#1754d8", look.iconColor ?? config?.bubble.iconColor ?? "#ffffff") : nil
+            sendColor: look.sendColor
         ) else { return }
         let appId = env.appId
         let controller = ChatViewController(url: url, apiUrl: env.apiUrl, dark: dark, inspectable: env.debug)

@@ -143,6 +143,8 @@ enum ChatRules {
         var position: String?
         /// One size for phones and tablets alike, in points.
         var size: Double?
+        /// The chat's send button and the person's own messages.
+        var sendColor: String? = nil
     }
 
     /// The dashboard's bubble with the app's own choices on top.
@@ -240,7 +242,7 @@ enum ChatRules {
     /// opted out of tracking; the token goes in only when there is one.
     /// Without one, `fresh=1` tells the page to drop a token it kept itself
     /// (the last person's, after a sign-out) and start a new thread.
-    static func chatURL(env: Env, token: String?, platform: String, language: String, theme: String?, colors: (String, String)? = nil) -> URL? {
+    static func chatURL(env: Env, token: String?, platform: String, language: String, theme: String?, sendColor: String? = nil) -> URL? {
         // sheet=1: the page slides up as a sheet (4.15.0) and keeps room for its handle.
         var fragment = ["p=\(platform)", "close=1", "sheet=1"]
         func add(_ key: String, _ value: String?) {
@@ -254,12 +256,9 @@ enum ChatRules {
         }
         if isToken(token) { add("t", token) } else { fragment.append("fresh=1") }
         add("theme", theme)
-        // The colors the app's own code set (the page colors the person's
-        // messages and the send arrow with them, over the dashboard's).
-        if let colors {
-            add("c", colors.0)
-            add("ic", colors.1)
-        }
+        // The send color the app's own code set (the page colors the send
+        // arrow and the person's messages with it, over the dashboard's).
+        if let sendColor { add("sc", sendColor) }
         return URL(string: "\(base(env.apiUrl))/embed/chat/\(encode(env.appId))?lang=\(encode(language))#\(fragment.joined(separator: "&"))")
     }
 

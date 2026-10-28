@@ -214,6 +214,13 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertNil(ChatRules.hex("purple"))
     }
 
+    func testTheSendColorSetInCodeGoesToTheChatPage() {
+        let parts = fragment(ChatRules.chatURL(env: env(), token: nil, platform: "ios", language: "en", theme: nil, sendColor: "#007aff"))
+        XCTAssertEqual(parts["sc"], "#007aff")
+        XCTAssertNil(parts["c"])
+        XCTAssertNil(fragment(ChatRules.chatURL(env: env(), token: nil, platform: "ios", language: "en", theme: nil))["sc"])
+    }
+
     func testGlassStyle() {
         let glass = ChatRules.parseConfig(Data(#"{"enabled":true,"bubble":{"style":"glass"}}"#.utf8))
         XCTAssertEqual(glass.bubble.style, "glass")
