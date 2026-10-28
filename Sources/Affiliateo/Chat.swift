@@ -272,11 +272,11 @@ final class LiveChat {
         // An iPhone gets the owner's phone size ("auto" makes it smaller), an iPad the other.
         let size = CGFloat(UIDevice.current.userInterfaceIdiom == .phone ? style.sizePhone : style.size)
         let glass = style.style == "glass"
-        if let existing = bubble, existing.size != size || existing.glass != glass {
+        if let existing = bubble, existing.size != size || existing.glass != glass || existing.colors != (style.color, style.iconColor) {
             existing.removeFromSuperview()
             bubble = nil
         }
-        let view = bubble ?? ChatBubbleView(appId: env.appId, size: size, glass: glass) { LiveChat.shared.open() }
+        let view = bubble ?? ChatBubbleView(appId: env.appId, size: size, glass: glass, color: style.color, iconColor: style.iconColor) { LiveChat.shared.open() }
         bubble = view
         view.position = style.position
         view.bottomPadding = bottomPadding
@@ -440,6 +440,10 @@ final class ChatBubbleView: UIView {
     let size: CGFloat
     /// The owner's "Glass" style: Liquid Glass on iOS 26 and later, frosted glass before.
     let glass: Bool
+    /// The owner's circle and icon colors (#rrggbb), as the config gave them.
+    let colors: (String, String)
+    private let tint: UIColor
+    private let ink: UIColor
     /// The owner's corner: bottom-right, bottom-left, top-right or top-left.
     var position = "bottom-right"
     /// Points the app keeps free above the bottom safe area: the bubble starts
@@ -448,7 +452,6 @@ final class ChatBubbleView: UIView {
 
     private let appId: String
     private let onTap: () -> Void
-    private let art = UIImageView()
     private let pill = UILabel()
     private let dot = UIView()
     /// The red number and the green dot, scaled with the circle.
@@ -459,10 +462,20 @@ final class ChatBubbleView: UIView {
     private var dragged: CGPoint?
     private var dragStart: CGPoint = .zero
 
-    init(appId: String, size: CGFloat, glass: Bool = false, onTap: @escaping () -> Void) {
+    init(
+        appId: String,
+        size: CGFloat,
+        glass: Bool = false,
+        color: String = "#1754d8",
+        iconColor: String = "#ffffff",
+        onTap: @escaping () -> Void
+    ) {
         self.appId = appId
         self.size = size
         self.glass = glass
+        self.colors = (color, iconColor)
+        self.tint = Self.uiColor(color) ?? Self.brand
+        self.ink = Self.uiColor(iconColor) ?? .white
         self.onTap = onTap
         self.badge = ChatRules.badgeMetrics(size: Double(size))
         super.init(frame: CGRect(x: 0, y: 0, width: size, height: size))
@@ -471,17 +484,7 @@ final class ChatBubbleView: UIView {
         if glass {
             addGlass()
         } else {
-            backgroundColor = Self.brand
-            layer.shadowColor = backgroundColor?.cgColor
-            layer.shadowOpacity = 0.3
-            layer.shadowRadius = 8
-            layer.shadowOffset = CGSize(width: 0, height: 4)
-
-            art.frame = bounds
-            art.layer.cornerRadius = size / 2
-            art.clipsToBounds = true
-            if let data = ChatBubbleImage.pngData { art.image = UIImage(data: data, scale: 3) }
-            addSubview(art)
+            addSolid()
         }
 
         pill.backgroundColor = UIColor(red: 0xEF / 255, green: 0x44 / 255, blue: 0x44 / 255, alpha: 1)
@@ -518,6 +521,35 @@ final class ChatBubbleView: UIView {
 
     static let brand = UIColor(red: 0x17 / 255, green: 0x54 / 255, blue: 0xD8 / 255, alpha: 1)
 
+    static func uiColor(_ hex: String) -> UIColor? {
+        guard let c = ChatRules.rgb(hex) else { return nil }
+        return UIColor(red: c.r, green: c.g, blue: c.b, alpha: 1)
+    }
+
+    /// The solid circle, as on the website: the owner's color, a little lighter
+    /// at the top left, with the speech bubble in the icon color.
+    private func addSolid() {
+        layer.shadowColor = tint.cgColor
+        layer.shadowOpacity = 0.3
+        layer.shadowRadius = 8
+        layer.shadowOffset = CGSize(width: 0, height: 4)
+        let circle = CAGradientLayer()
+        circle.frame = bounds
+        circle.cornerRadius = size / 2
+        circle.startPoint = CGPoint(x: 0, y: 0)
+        circle.endPoint = CGPoint(x: 1, y: 1)
+        // color-mix(in oklab, color 55%, white), close enough in plain RGB.
+        var (r, g, b, a) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
+        tint.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let light = UIColor(red: r * 0.55 + 0.45, green: g * 0.55 + 0.45, blue: b * 0.55 + 0.45, alpha: 1)
+        circle.colors = [light.cgColor, tint.cgColor]
+        layer.addSublayer(circle)
+        let glyph = CAShapeLayer()
+        glyph.path = Self.speechBubble(in: size).cgPath
+        glyph.fillColor = ink.cgColor
+        layer.addSublayer(glyph)
+    }
+
     /// The "Glass" style: the screen shows through a blue-tinted glass circle
     /// (Liquid Glass on iOS 26 and later, which also answers a press; frosted
     /// glass before), with the white speech bubble on top.
@@ -531,16 +563,16 @@ final class ChatBubbleView: UIView {
         let effect: UIVisualEffectView
         if #available(iOS 26.0, *) {
             let liquid = UIGlassEffect()
-            liquid.tintColor = Self.brand.withAlphaComponent(0.6)
+            liquid.tintColor = tint.withAlphaComponent(0.6)
             liquid.isInteractive = true
             effect = UIVisualEffectView(effect: liquid)
             effect.cornerConfiguration = .capsule()
         } else {
             effect = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
-            let tint = UIView(frame: bounds)
-            tint.backgroundColor = Self.brand.withAlphaComponent(0.6)
-            tint.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            effect.contentView.addSubview(tint)
+            let wash = UIView(frame: bounds)
+            wash.backgroundColor = tint.withAlphaComponent(0.6)
+            wash.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            effect.contentView.addSubview(wash)
             effect.layer.cornerRadius = size / 2
             effect.layer.borderWidth = 1
             effect.layer.borderColor = UIColor.white.withAlphaComponent(0.45).cgColor
@@ -551,7 +583,7 @@ final class ChatBubbleView: UIView {
 
         let glyph = CAShapeLayer()
         glyph.path = Self.speechBubble(in: size).cgPath
-        glyph.fillColor = UIColor.white.cgColor
+        glyph.fillColor = ink.cgColor
         effect.contentView.layer.addSublayer(glyph)
     }
 

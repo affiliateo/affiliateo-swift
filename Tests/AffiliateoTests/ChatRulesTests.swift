@@ -187,6 +187,17 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertEqual(tl.y, 956 - 48 - 20 - 59)
     }
 
+    func testColors() {
+        let colored = ChatRules.parseConfig(Data(##"{"enabled":true,"bubble":{"color":"#7c3aed","icon_color":"#fef3c7"}}"##.utf8))
+        XCTAssertEqual(colored.bubble.color, "#7c3aed")
+        XCTAssertEqual(colored.bubble.iconColor, "#fef3c7")
+        // Anything that is not #rrggbb keeps Affiliateo's blue and white.
+        let odd = ChatRules.parseConfig(Data(##"{"enabled":true,"bubble":{"color":"purple","icon_color":"#fff"}}"##.utf8))
+        XCTAssertEqual(odd.bubble.color, "#1754d8")
+        XCTAssertEqual(odd.bubble.iconColor, "#ffffff")
+        XCTAssertEqual(ChatRules.rgb("#ff8000")?.g ?? 0, 128.0 / 255, accuracy: 0.0001)
+    }
+
     func testGlassStyle() {
         let glass = ChatRules.parseConfig(Data(#"{"enabled":true,"bubble":{"style":"glass"}}"#.utf8))
         XCTAssertEqual(glass.bubble.style, "glass")

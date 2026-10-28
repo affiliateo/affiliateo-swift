@@ -57,9 +57,12 @@ enum ChatRules {
         /// Set when the greeting counts as one unread message until the chat
         /// is first opened; a new greeting has a new id.
         var greetingId: String?
-        /// "standard" (the blue circle) or "glass" (Liquid Glass on iOS 26
-        /// and later, frosted glass before).
+        /// "standard" (a solid circle) or "glass" (Liquid Glass on iOS 26
+        /// and later, frosted glass before), tinted with `color`.
         var style = "standard"
+        /// The owner's circle color and the speech bubble's inside it, #rrggbb.
+        var color = "#1754d8"
+        var iconColor = "#ffffff"
 
         static let standard = Bubble()
     }
@@ -126,7 +129,15 @@ enum ChatRules {
         bubble.pageRules = (b["page_rules"] as? [Any])?.compactMap { $0 as? String } ?? []
         if let id = b["greeting_id"] as? String, !id.isEmpty { bubble.greetingId = id }
         if b["style"] as? String == "glass" { bubble.style = "glass" }
+        if let color = b["color"] as? String, rgb(color) != nil { bubble.color = color }
+        if let color = b["icon_color"] as? String, rgb(color) != nil { bubble.iconColor = color }
         return bubble
+    }
+
+    /// A #rrggbb color's red, green and blue, 0 to 1; nil for anything else.
+    static func rgb(_ hex: String) -> (r: Double, g: Double, b: Double)? {
+        guard hex.count == 7, hex.hasPrefix("#"), let value = UInt32(hex.dropFirst(), radix: 16) else { return nil }
+        return (Double((value >> 16) & 0xFF) / 255, Double((value >> 8) & 0xFF) / 255, Double(value & 0xFF) / 255)
     }
 
     // MARK: Which screens
