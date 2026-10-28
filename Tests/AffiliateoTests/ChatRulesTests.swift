@@ -214,6 +214,13 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertNil(ChatRules.hex("purple"))
     }
 
+    func testTheUnreadCheckCanSayOnlineForThisPerson() {
+        XCTAssertEqual(ChatRules.parseUnreadOnline(Data(#"{"unread":0,"online":true}"#.utf8)), true)
+        XCTAssertEqual(ChatRules.parseUnreadOnline(Data(#"{"unread":2,"online":false}"#.utf8)), false)
+        XCTAssertNil(ChatRules.parseUnreadOnline(Data(#"{"unread":1}"#.utf8)))
+        XCTAssertEqual(ChatRules.parseUnread(Data(#"{"unread":3,"online":true}"#.utf8)), 3)
+    }
+
     func testTheBoxTextSetInCodeGoesToTheChatPage() {
         let parts = fragment(ChatRules.chatURL(env: env(), token: nil, platform: "ios", language: "es", theme: nil, placeholder: ChatRules.placeholder("  Pregúntanos\n lo que sea ")))
         XCTAssertEqual(parts["ph"], "Pregúntanos lo que sea")

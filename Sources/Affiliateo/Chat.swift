@@ -34,6 +34,8 @@ final class LiveChat {
     private var configTask: Task<ChatRules.Config, Never>?
     private var unreadCheckedAt: Date?
     private var unread = 0
+    /// Online for this person alone (their own affiliate counts), from the unread check, beside the config's.
+    private var visitorOnline = false
     /// The greeting nobody on this phone has seen yet: one unread message.
     private var greetingPending = false
     /// The name the app last passed to page(_:).
@@ -154,6 +156,7 @@ final class LiveChat {
     func forget() {
         stopSocket()
         unreadCheckedAt = nil
+        visitorOnline = false
         setUnread(0)
         // A token the closing page hands over late is not kept.
         screen?.onToken = nil
@@ -213,8 +216,9 @@ final class LiveChat {
               // A sign-out while this was on its way: the count was the last person's.
               storedToken(env.appId) == token
         else { return }
+        visitorOnline = ChatRules.parseUnreadOnline(data) ?? false
         // An open chat has just shown them everything.
-        if screen == nil { setUnread(count) }
+        if screen == nil { setUnread(count) } else { paintBubble() }
     }
 
     private func storedToken(_ appId: String) -> String? {
@@ -264,7 +268,7 @@ final class LiveChat {
     }
 
     private func paintBubble() {
-        bubble?.update(unread: unread + (greetingPending ? 1 : 0), online: config?.online ?? false)
+        bubble?.update(unread: unread + (greetingPending ? 1 : 0), online: (config?.online ?? false) || visitorOnline)
     }
 
     // MARK: The bubble

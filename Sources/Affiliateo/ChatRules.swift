@@ -243,6 +243,14 @@ enum ChatRules {
         return unread
     }
 
+    /// Whether someone who answers THIS person is online, the affiliate who
+    /// brought them included (4.15.0); nil when the answer leaves it out (no
+    /// affiliate brought them: the config's online decides).
+    static func parseUnreadOnline(_ data: Data) -> Bool? {
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        return json["online"] as? Bool
+    }
+
     // MARK: The chat page
 
     /// The chat page for this app. The ids are left out while the person has
