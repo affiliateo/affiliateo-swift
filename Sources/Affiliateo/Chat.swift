@@ -47,6 +47,8 @@ final class LiveChat {
     /// Points the app keeps free above the bottom safe area (its tab bar or
     /// floating button), set with Affiliateo.setChatBubblePadding(bottom:).
     private var bottomPadding: CGFloat = 0
+    /// The app's own look for the bubble (setChatBubbleLook), over the dashboard's.
+    private var look = ChatRules.BubbleLook()
 
     // The live socket on the thread, for the red number.
     private var socket: URLSessionWebSocketTask?
@@ -84,6 +86,11 @@ final class LiveChat {
             placeBubble()
             await refreshUnread(force: true)
         }
+    }
+
+    func setLook(_ next: ChatRules.BubbleLook) {
+        look = next
+        placeBubble()
     }
 
     func setBottomPadding(_ points: CGFloat) {
@@ -261,7 +268,7 @@ final class LiveChat {
             removeBubble()
             return
         }
-        let style = config.bubble
+        let style = ChatRules.applying(look, to: config.bubble)
         guard screen == nil, ChatRules.bubbleShowsOn(mode: style.pageMode, rules: style.pageRules, place: currentScreen) else {
             bubble?.isHidden = true
             stopSocket()
@@ -374,7 +381,8 @@ final class LiveChat {
             token: storedToken(env.appId),
             platform: "ios",
             language: Locale.preferredLanguages.first ?? "en",
-            theme: dark ? "dark" : "light"
+            theme: dark ? "dark" : "light",
+            colors: look.color != nil || look.iconColor != nil ? (look.color ?? config?.bubble.color ?? "#1754d8", look.iconColor ?? config?.bubble.iconColor ?? "#ffffff") : nil
         ) else { return }
         let appId = env.appId
         let controller = ChatViewController(url: url, apiUrl: env.apiUrl, dark: dark, inspectable: env.debug)

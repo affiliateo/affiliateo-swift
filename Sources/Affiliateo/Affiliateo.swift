@@ -987,6 +987,22 @@ private final class ResumeOnce: @unchecked Sendable {
 /// Top-level namespace for firing screen_view / custom events without
 /// threading `@EnvironmentObject var affiliateo: AffiliateoManager` through
 /// every view. No-op if `AffiliateoProvider` hasn't been mounted yet.
+/// The chat bubble's look, for Affiliateo.setChatBubbleLook (4.15.0).
+public enum ChatBubbleStyle: String {
+    /// A solid circle in your color.
+    case solid = "standard"
+    /// See-through, tinted with your color: Liquid Glass on iOS 26 and later.
+    case glass
+}
+
+/// The corner the chat bubble starts in, for Affiliateo.setChatBubbleLook (4.15.0).
+public enum ChatBubbleCorner: String {
+    case bottomRight = "bottom-right"
+    case bottomLeft = "bottom-left"
+    case topRight = "top-right"
+    case topLeft = "top-left"
+}
+
 public enum Affiliateo {
     /// Fire a screen_view event. Call from `.onAppear` or `viewDidAppear`.
     public static func page(_ screenName: String, metadata: [String: Any]? = nil) {
@@ -1088,6 +1104,35 @@ public enum Affiliateo {
     public static func setChatBubblePadding(bottom: CGFloat) {
         #if os(iOS)
         Task { @MainActor in LiveChat.shared.setBottomPadding(bottom) }
+        #endif
+    }
+
+    /// Your own look for the chat bubble (4.15.0), over what the Live Chat
+    /// settings in your dashboard say: anything you leave out keeps the
+    /// dashboard's choice. Colors are hex ("#7C3AED"); the size is in points
+    /// (40 to 80) for phones and tablets alike. The color also colors the
+    /// person's own messages and the send button in the chat. The green
+    /// online dot and the red unread number keep their colors.
+    ///
+    /// ```swift
+    /// Affiliateo.setChatBubbleLook(color: "#7C3AED", iconColor: "#FFFFFF", style: .glass, corner: .bottomLeft, size: 56)
+    /// ```
+    public static func setChatBubbleLook(
+        color: String? = nil,
+        iconColor: String? = nil,
+        style: ChatBubbleStyle? = nil,
+        corner: ChatBubbleCorner? = nil,
+        size: CGFloat? = nil
+    ) {
+        let look = ChatRules.BubbleLook(
+            color: color.flatMap(ChatRules.hex),
+            iconColor: iconColor.flatMap(ChatRules.hex),
+            style: style?.rawValue,
+            position: corner?.rawValue,
+            size: size.map { Double(min(max($0, 40), 80)) }
+        )
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.setLook(look) }
         #endif
     }
 

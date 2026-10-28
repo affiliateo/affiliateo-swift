@@ -134,6 +134,41 @@ enum ChatRules {
         return bubble
     }
 
+    /// What the app's own code asks for (setChatBubbleLook, 4.15.0); each
+    /// set field wins over the dashboard's choice, each nil keeps it.
+    struct BubbleLook: Equatable {
+        var color: String?
+        var iconColor: String?
+        var style: String?
+        var position: String?
+        /// One size for phones and tablets alike, in points.
+        var size: Double?
+    }
+
+    /// The dashboard's bubble with the app's own choices on top.
+    static func applying(_ look: BubbleLook, to bubble: Bubble) -> Bubble {
+        var b = bubble
+        if let c = look.color { b.color = c }
+        if let c = look.iconColor { b.iconColor = c }
+        if let s = look.style { b.style = s }
+        if let p = look.position { b.position = p }
+        if let s = look.size {
+            b.size = s
+            b.sizePhone = s
+        }
+        return b
+    }
+
+    /// A color as the code may write it ("#7C3AED", "7c3aed", "#fa0") as
+    /// #rrggbb, lowercase; nil for anything else.
+    static func hex(_ value: String) -> String? {
+        var v = value.trimmingCharacters(in: .whitespaces).lowercased()
+        if v.hasPrefix("#") { v.removeFirst() }
+        guard v.allSatisfy({ $0.isHexDigit }) else { return nil }
+        if v.count == 3 { v = v.map { "\($0)\($0)" }.joined() }
+        return v.count == 6 ? "#\(v)" : nil
+    }
+
     /// A #rrggbb color's red, green and blue, 0 to 1; nil for anything else.
     static func rgb(_ hex: String) -> (r: Double, g: Double, b: Double)? {
         guard hex.count == 7, hex.hasPrefix("#"), let value = UInt32(hex.dropFirst(), radix: 16) else { return nil }
@@ -205,7 +240,7 @@ enum ChatRules {
     /// opted out of tracking; the token goes in only when there is one.
     /// Without one, `fresh=1` tells the page to drop a token it kept itself
     /// (the last person's, after a sign-out) and start a new thread.
-    static func chatURL(env: Env, token: String?, platform: String, language: String, theme: String?) -> URL? {
+    static func chatURL(env: Env, token: String?, platform: String, language: String, theme: String?, colors: (String, String)? = nil) -> URL? {
         // sheet=1: the page slides up as a sheet (4.15.0) and keeps room for its handle.
         var fragment = ["p=\(platform)", "close=1", "sheet=1"]
         func add(_ key: String, _ value: String?) {
@@ -219,6 +254,12 @@ enum ChatRules {
         }
         if isToken(token) { add("t", token) } else { fragment.append("fresh=1") }
         add("theme", theme)
+        // The colors the app's own code set (the page colors the person's
+        // messages and the send arrow with them, over the dashboard's).
+        if let colors {
+            add("c", colors.0)
+            add("ic", colors.1)
+        }
         return URL(string: "\(base(env.apiUrl))/embed/chat/\(encode(env.appId))?lang=\(encode(language))#\(fragment.joined(separator: "&"))")
     }
 

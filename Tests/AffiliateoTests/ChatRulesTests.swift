@@ -198,6 +198,22 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertEqual(ChatRules.rgb("#ff8000")?.g ?? 0, 128.0 / 255, accuracy: 0.0001)
     }
 
+    func testTheAppsOwnLookWins() {
+        let dashboard = ChatRules.parseConfig(Data(##"{"enabled":true,"bubble":{"position":"bottom-right","size_points":56,"size_points_phone":48,"color":"#1754d8","style":"standard"}}"##.utf8)).bubble
+        let mine = ChatRules.applying(.init(color: "#7c3aed", iconColor: nil, style: "glass", position: "top-left", size: 64), to: dashboard)
+        XCTAssertEqual(mine.color, "#7c3aed")
+        XCTAssertEqual(mine.iconColor, "#ffffff")
+        XCTAssertEqual(mine.style, "glass")
+        XCTAssertEqual(mine.position, "top-left")
+        XCTAssertEqual(mine.size, 64)
+        XCTAssertEqual(mine.sizePhone, 64)
+        // Nothing set: the dashboard's bubble as it was.
+        XCTAssertEqual(ChatRules.applying(.init(), to: dashboard), dashboard)
+        XCTAssertEqual(ChatRules.hex("#7C3AED"), "#7c3aed")
+        XCTAssertEqual(ChatRules.hex("fa0"), "#ffaa00")
+        XCTAssertNil(ChatRules.hex("purple"))
+    }
+
     func testGlassStyle() {
         let glass = ChatRules.parseConfig(Data(#"{"enabled":true,"bubble":{"style":"glass"}}"#.utf8))
         XCTAssertEqual(glass.bubble.style, "glass")
