@@ -88,7 +88,8 @@ The same person then counts as one customer across their devices. After
 next (or nobody) isn't counted as the person who just left; everything already
 recorded stays with them. Tracking carries on as before: same device, same
 visitor id, same `appAccountToken`, no relaunch needed. If a different user
-signs in without a sign-out in between, the phone switches to them on its own.
+signs in without a sign-out in between, the phone switches to them on its own,
+and the last person's Live Chat thread is forgotten first (4.15.1).
 
 The SDK remembers the signed-in id and sends it again once per launch. Ids that
 mean "nobody" (`"null"`, `"guest"`, `"0"`, an empty string, RevenueCat's

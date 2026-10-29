@@ -161,6 +161,28 @@ final class LiveChat {
         // A token the closing page hands over late is not kept.
         screen?.onToken = nil
         screen?.dismiss(animated: true)
+        // Nothing of their chat stays in web storage (4.15.1): the chat page
+        // runs in a private store now, and whatever an older version left in
+        // the shared one for Affiliateo's host goes. Cookies are left alone.
+        if let host = env.flatMap({ URL(string: $0.apiUrl)?.host }) {
+            Self.clearWebStorage(host: host)
+        }
+    }
+
+    /// Removes the chat page's local, session and IndexedDB storage for
+    /// Affiliateo's host from the shared web data store.
+    private static func clearWebStorage(host: String) {
+        let store = WKWebsiteDataStore.default()
+        let types: Set<String> = [
+            WKWebsiteDataTypeLocalStorage,
+            WKWebsiteDataTypeSessionStorage,
+            WKWebsiteDataTypeIndexedDBDatabases,
+        ]
+        store.fetchDataRecords(ofTypes: types) { records in
+            let chat = records.filter { host == $0.displayName || host.hasSuffix("." + $0.displayName) }
+            guard !chat.isEmpty else { return }
+            store.removeData(ofTypes: types, for: chat) {}
+        }
     }
 
     // MARK: The server
@@ -397,7 +419,11 @@ final class LiveChat {
         ) else { return }
         let appId = env.appId
         let controller = ChatViewController(url: url, apiUrl: env.apiUrl, dark: dark, inspectable: env.debug)
+        // A key the page hands over is saved only while nobody signed out (or
+        // switched person) since this screen opened (4.15.1).
+        let openedAt = ChatSignOuts.current
         controller.onToken = { token in
+            guard ChatSignOuts.current == openedAt else { return }
             UserDefaults.standard.set(token, forKey: ChatRules.tokenKey(appId))
         }
         controller.onRead = { LiveChat.shared.setUnread(0) }
@@ -773,6 +799,11 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
         view.backgroundColor = background
 
         let configuration = WKWebViewConfiguration()
+        // A private store for this screen only (4.15.1): the page's own copy of
+        // the key and its message cache never reach the disk, so nothing is
+        // left after a sign-out. The key lives in UserDefaults and goes with
+        // logout(); the page loads from the server each time.
+        configuration.websiteDataStore = .nonPersistent()
         configuration.userContentController.add(WeakScriptHandler(self), name: Self.bridgeName)
         let web = WKWebView(frame: .zero, configuration: configuration)
         web.navigationDelegate = self

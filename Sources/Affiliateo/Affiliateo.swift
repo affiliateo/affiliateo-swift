@@ -353,7 +353,10 @@ public final class AffiliateoManager: ObservableObject {
         // Right away, not in the task: a freeAccess() that cannot reach the
         // server must not unlock from the person who just left.
         FreeAccessCache.clear()
-        // Nor may the chat open their thread (4.14.2).
+        // Nor may the chat open their thread (4.14.2). The sign-out count goes
+        // up first, here on the caller's thread (4.15.1): a key the open chat
+        // page hands over from now on is not saved again.
+        ChatSignOuts.bump()
         UserDefaults.standard.removeObject(forKey: ChatRules.tokenKey(campaignId))
         #if os(iOS)
         Task { @MainActor in LiveChat.shared.forget() }
@@ -444,6 +447,16 @@ public final class AffiliateoManager: ObservableObject {
         let hash = AffiliateoEmail.sha256Hex(email)
         let task = Task { @MainActor in
             if self.userId != uid {
+                // A DIFFERENT person signing in on this phone (4.15.1): the
+                // last person's Live Chat thread was theirs, so it goes first,
+                // exactly as on logout(). Signing in from anonymous keeps it.
+                if ChatRules.switchesPerson(previous: self.userId, next: uid) {
+                    ChatSignOuts.bump()
+                    UserDefaults.standard.removeObject(forKey: ChatRules.tokenKey(self.campaignId))
+                    #if os(iOS)
+                    LiveChat.shared.forget()
+                    #endif
+                }
                 self.userId = uid
                 UserDefaults.standard.set(uid, forKey: AffiliateoManager.userIdKey)
                 // Somebody else: their own email (or none), and no free access

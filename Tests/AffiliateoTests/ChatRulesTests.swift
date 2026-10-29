@@ -25,6 +25,25 @@ final class ChatRulesTests: XCTestCase {
         return parts
     }
 
+    /// 4.15.1: a different signed-in person forgets the last person's thread;
+    /// signing in from anonymous, or the same person again, keeps it.
+    func testSwitchesPersonOnlyBetweenTwoSignedInPeople() {
+        XCTAssertTrue(ChatRules.switchesPerson(previous: "user-a", next: "user-b"))
+        XCTAssertFalse(ChatRules.switchesPerson(previous: "user-a", next: "user-a"))
+        XCTAssertFalse(ChatRules.switchesPerson(previous: nil, next: "user-a"))
+        XCTAssertFalse(ChatRules.switchesPerson(previous: "", next: "user-a"))
+    }
+
+    /// 4.15.1: a key handed over after a sign-out no longer matches the count
+    /// the chat screen opened with.
+    func testSignOutCountMovesOnEverySignOut() {
+        let openedAt = ChatSignOuts.current
+        XCTAssertEqual(ChatSignOuts.current, openedAt)
+        ChatSignOuts.bump()
+        XCTAssertNotEqual(ChatSignOuts.current, openedAt)
+        XCTAssertEqual(ChatSignOuts.current, openedAt + 1)
+    }
+
     func testTokenShape() {
         XCTAssertTrue(ChatRules.isToken(token))
         XCTAssertFalse(ChatRules.isToken(nil))

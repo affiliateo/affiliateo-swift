@@ -79,6 +79,17 @@ enum ChatRules {
         case message
     }
 
+    // MARK: Whose thread it is (4.15.1)
+
+    /// Whether a sign-in switches this phone from one signed-in person to a
+    /// DIFFERENT one. Then the last person's chat thread is forgotten first,
+    /// as `logout()` does; signing in from anonymous (nobody before) keeps
+    /// the person's own thread.
+    static func switchesPerson(previous: String?, next: String) -> Bool {
+        guard let previous, !previous.isEmpty else { return false }
+        return previous != next
+    }
+
     // MARK: Storage, the same key names as the React Native SDK
 
     static func tokenKey(_ appId: String) -> String { "affiliateo_chat_token_\(appId)" }
@@ -368,5 +379,26 @@ enum ChatRules {
 
     static func encode(_ value: String) -> String {
         value.addingPercentEncoding(withAllowedCharacters: unreserved) ?? value
+    }
+}
+
+/// Counts sign-outs and switches of person (4.15.1), readable from any
+/// thread. The chat screen saves a thread key the page hands over only while
+/// the count is still the one it opened with, so a key can never outlive a
+/// sign-out: `logout()` bumps it before anything else, on the caller's thread.
+enum ChatSignOuts {
+    private static let lock = NSLock()
+    private static var count = 0
+
+    static var current: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    static func bump() {
+        lock.lock()
+        count += 1
+        lock.unlock()
     }
 }

@@ -1,9 +1,16 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.15.0
+// SDK version: 4.15.1
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.15.1: Live Chat privacy on shared phones. identify(_:) with a different
+//   user (no logout() in between) forgets the last person's chat first, as
+//   logout() does; signing in from anonymous keeps the person's own thread.
+//   A thread key the open chat hands over after a sign-out is no longer
+//   saved again. The chat page runs in a private web data store, and
+//   logout() removes whatever an older version left in web storage for
+//   Affiliateo's host, so no key or transcript copy stays on the phone.
 // 4.15.0: Live Chat opens as a sheet that slides up over the app (with its
 //   handle; pulled down or the page's close button closes it), and the
 //   owner's new "Glass" bubble style: Liquid Glass on iOS 26 and later,
