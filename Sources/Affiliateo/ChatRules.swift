@@ -364,6 +364,46 @@ enum ChatRules {
         return unread > 9 ? "9+" : String(unread)
     }
 
+    // MARK: The bubble's words (4.15.2)
+
+    /// What VoiceOver says for the bubble, in the person's language: the 16
+    /// languages Affiliateo speaks, English for any other (review E14). The
+    /// same words as the website's chat.js and the React Native and Kotlin SDKs.
+    struct ChatWords: Equatable {
+        let chat: String
+        let close: String
+        /// "Chat, {n} unread".
+        let unreadPattern: String
+
+        func unread(_ count: Int) -> String {
+            unreadPattern.replacingOccurrences(of: "{n}", with: String(count))
+        }
+
+        static let all: [String: ChatWords] = [
+            "en": ChatWords(chat: "Chat", close: "Close chat", unreadPattern: "Chat, {n} unread"),
+            "ar": ChatWords(chat: "الدردشة", close: "إغلاق الدردشة", unreadPattern: "الدردشة، {n} غير مقروءة"),
+            "de": ChatWords(chat: "Chat", close: "Chat schließen", unreadPattern: "Chat, {n} ungelesen"),
+            "es": ChatWords(chat: "Chat", close: "Cerrar chat", unreadPattern: "Chat, {n} sin leer"),
+            "fr": ChatWords(chat: "Chat", close: "Fermer le chat", unreadPattern: "Chat, {n} non lus"),
+            "hi": ChatWords(chat: "चैट", close: "चैट बंद करें", unreadPattern: "चैट, {n} अपठित"),
+            "it": ChatWords(chat: "Chat", close: "Chiudi chat", unreadPattern: "Chat, {n} non letti"),
+            "ja": ChatWords(chat: "チャット", close: "チャットを閉じる", unreadPattern: "チャット、未読 {n} 件"),
+            "ko": ChatWords(chat: "채팅", close: "채팅 닫기", unreadPattern: "채팅, 읽지 않음 {n}개"),
+            "nl": ChatWords(chat: "Chat", close: "Chat sluiten", unreadPattern: "Chat, {n} ongelezen"),
+            "pl": ChatWords(chat: "Czat", close: "Zamknij czat", unreadPattern: "Czat, nieprzeczytane: {n}"),
+            "pt": ChatWords(chat: "Chat", close: "Fechar chat", unreadPattern: "Chat, {n} não lidas"),
+            "ru": ChatWords(chat: "Чат", close: "Закрыть чат", unreadPattern: "Чат, непрочитанных: {n}"),
+            "tr": ChatWords(chat: "Sohbet", close: "Sohbeti kapat", unreadPattern: "Sohbet, {n} okunmamış"),
+            "vi": ChatWords(chat: "Trò chuyện", close: "Đóng trò chuyện", unreadPattern: "Trò chuyện, {n} chưa đọc"),
+            "zh": ChatWords(chat: "聊天", close: "关闭聊天", unreadPattern: "聊天，{n} 条未读"),
+        ]
+
+        /// The words for a language tag ("pt-BR", "zh-Hans-CN"): its first two letters.
+        static func forLanguage(_ tag: String) -> ChatWords {
+            all[String(tag.lowercased().prefix(2))] ?? all["en"]!
+        }
+    }
+
     // MARK: Helpers
 
     private static func base(_ apiUrl: String) -> String {

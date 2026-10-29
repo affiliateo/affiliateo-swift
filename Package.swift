@@ -1,9 +1,17 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.15.1
+// SDK version: 4.15.2
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.15.2: the chat bubble is for the app's pages: anything presented over
+//   them (a sheet, a full-screen cover, an alert) covers it, also after the
+//   app comes back to the front or page(_:) is sent (it used to jump on top).
+//   A chat that fails to present (the screen on top was busy) no longer
+//   leaves the bubble hidden. VoiceOver says the bubble in the phone's
+//   language (16 languages) with the unread count. The live socket sends the
+//   thread key in its Authorization header, not in its address. Builds with
+//   an Xcode older than 26 again (Liquid Glass only with the iOS 26 SDK).
 // 4.15.1: Live Chat privacy on shared phones. identify(_:) with a different
 //   user (no logout() in between) forgets the last person's chat first, as
 //   logout() does; signing in from anonymous keeps the person's own thread.
@@ -17,6 +25,10 @@
 //   frosted glass before. setChatBubblePadding(bottom:) keeps the bubble
 //   above the app's own tab bar or floating button. The bubble shows at once
 //   on launch from the last answer the phone kept, then checks the server.
+//   setChatBubbleLook(...) sets the app's own colors, style, corner, size and
+//   send color over the dashboard's, and setChatPlaceholder(_:) the message
+//   box text in the app's own words and language. The green dot also shows
+//   while the affiliate who brought this person is online.
 // 4.14.2: logout() forgets the person's chat, so the next person on the
 //   phone starts a new thread; the speech bubble fills 60% of the circle.
 // 4.14.1: Live Chat's "auto" bubble size: small on an iPhone, medium on an

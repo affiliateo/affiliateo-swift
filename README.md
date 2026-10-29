@@ -236,8 +236,10 @@ Affiliateo.setChatPlaceholder(String(localized: "Ask us anything"))
 - Nothing shows until your code calls `showChatBubble()` or `openChat()`, so
   App Review sees every feature your app has. Nothing shows either while Live
   Chat is off for this app in your dashboard.
-- The bubble sits on top of your screens (a sheet you present covers it).
-  People can drag it and it stays where they leave it. It shows a red number
+- The bubble is for your app's pages: anything you present over them (a
+  sheet, a full-screen cover, an alert) covers it, also after the app comes
+  back to the front (4.15.2). People can drag it and it stays where they leave
+  it. VoiceOver reads it in the phone's language, with the unread count. It shows a red number
   for replies they have not read, live while the app is open, and a green dot
   while someone on your team is online. On launch it shows at once from the
   last answer the phone kept, then checks with the server (4.15.0).

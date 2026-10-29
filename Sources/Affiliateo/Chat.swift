@@ -5,7 +5,7 @@ import WebKit
 /// Live Chat (4.14.0): the app's users chat in real time with the business,
 /// which answers from the Live Chat inbox in its Affiliateo dashboard.
 ///
-///     Affiliateo.showChatBubble()   the bubble on every screen
+///     Affiliateo.showChatBubble()   the bubble on the app's pages (what is presented over them covers it)
 ///     Affiliateo.openChat()         or open it from your own button
 ///
 /// Nothing shows until the app calls one of them: an app must not grow a
@@ -319,15 +319,33 @@ final class LiveChat {
         bubble = view
         view.position = style.position
         view.bottomPadding = bottomPadding
-        if view.superview !== window {
-            view.removeFromSuperview()
-            window.addSubview(view)
-        }
+        Self.keepOnPages(view, in: window)
         view.place()
-        window.bringSubviewToFront(view)
         view.isHidden = false
         paintBubble()
         startSocket()
+    }
+
+    /// THE BUBBLE IS FOR THE APP'S PAGES (4.15.2, review E1): it sits just
+    /// above the window's root view and below anything presented over it, so
+    /// a sheet, a full-screen cover or an alert covers it. Every path that
+    /// shows it again (a launch, the app coming back to the front, page(_:),
+    /// a new look) comes through here; it used to bring itself to the front
+    /// of the window and land on top of whatever was presented.
+    static func keepOnPages(_ view: UIView, in window: UIWindow) {
+        guard let root = window.rootViewController?.view, root.superview === window else {
+            // No root view in the window yet: the lowest place there is.
+            if view.superview !== window { window.insertSubview(view, at: 0) }
+            return
+        }
+        let subviews = window.subviews
+        if view.superview === window,
+           let mine = subviews.firstIndex(of: view),
+           let rootIndex = subviews.firstIndex(of: root),
+           mine == rootIndex + 1 {
+            return
+        }
+        window.insertSubview(view, aboveSubview: root)
     }
 
     private func removeBubble() {
@@ -344,9 +362,13 @@ final class LiveChat {
         guard socket == nil, socketRetry == nil, inFront, screen == nil, bubble?.isHidden == false,
               let env, let token = storedToken(env.appId),
               let url = URL(string: env.apiUrl.replacingOccurrences(of: "http", with: "ws", options: .anchored)
-                  + "/api/live-chat/stream?token=\(ChatRules.encode(token))")
+                  + "/api/live-chat/stream")
         else { return }
-        let task = URLSession.shared.webSocketTask(with: url)
+        // The key goes in the header, never in the address, where it would
+        // land in the server's request logs (4.15.2, review E3).
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let task = URLSession.shared.webSocketTask(with: request)
         socket = task
         task.resume()
         socketPing = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak task] _ in
@@ -432,8 +454,6 @@ final class LiveChat {
         // They see the greeting now; a new one counts again.
         if let id = config?.bubble.greetingId { UserDefaults.standard.set(id, forKey: ChatRules.greetingKey(appId)) }
         greetingPending = false
-        stopSocket()
-        bubble?.isHidden = true
         // A sheet that slides up over the app (4.15.0), with its handle; pulled
         // down, or the page's close button, closes it.
         controller.modalPresentationStyle = .pageSheet
@@ -441,7 +461,21 @@ final class LiveChat {
             sheet.detents = [.large()]
             sheet.prefersGrabberVisible = true
         }
-        presenter.present(controller, animated: true)
+        // The bubble and its socket go once the sheet is really up (4.15.2,
+        // review E11). UIKit refuses a presentation silently while another one
+        // is moving, and the bubble used to stay hidden until the next page(_:)
+        // or foreground; such a chat is let go below and the bubble stays.
+        presenter.present(controller, animated: true) { [weak self, weak controller] in
+            guard let self, let controller, self.screen === controller else { return }
+            self.stopSocket()
+            self.bubble?.isHidden = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self, weak controller] in
+            guard let self, let controller, self.screen === controller, controller.presentingViewController == nil else { return }
+            self.log("openChat: the screen on top was busy presenting; try again")
+            self.screen = nil
+            self.placeBubble()
+        }
     }
 
     private func chatClosed() {
@@ -474,10 +508,11 @@ final class LiveChat {
 
 // MARK: - The bubble
 
-/// The floating chat bubble: the app's window gets it as its top view, so a
-/// screen the app presents later (a sheet, a paywall) covers it. It starts in
-/// the owner's corner; press, hold and move to drag it, and it stays where it
-/// was left from then on.
+/// The floating chat bubble, on the app's pages: LiveChat.keepOnPages puts it
+/// just above the window's root view, so anything the app presents over its
+/// pages (a sheet, a full-screen cover, an alert) covers it (4.15.2). It
+/// starts in the owner's corner; press, hold and move to drag it, and it stays
+/// where it was left from then on.
 final class ChatBubbleView: UIView {
     static let margin: CGFloat = 20
 
@@ -497,6 +532,8 @@ final class ChatBubbleView: UIView {
 
     private let appId: String
     private let onTap: () -> Void
+    /// The bubble's spoken words, in the phone's first language.
+    private let words = ChatRules.ChatWords.forLanguage(Locale.preferredLanguages.first ?? "en")
     private let pill = UILabel()
     private let dot = UIView()
     /// The red number and the green dot, scaled with the circle.
@@ -555,7 +592,8 @@ final class ChatBubbleView: UIView {
         dragged = savedOffset()
 
         isAccessibilityElement = true
-        accessibilityLabel = "Chat"
+        // In the person's language (4.15.2, review E14); update(unread:online:) adds the count.
+        accessibilityLabel = words.chat
         accessibilityTraits = .button
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped)))
         addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(handleDrag(_:))))
@@ -606,6 +644,10 @@ final class ChatBubbleView: UIView {
         layer.shadowOffset = CGSize(width: 0, height: 4)
 
         let effect: UIVisualEffectView
+        // Liquid Glass needs the iOS 26 SDK (Xcode 26, Swift 6.2): an app built
+        // with an older Xcode still compiles and gets the frosted glass
+        // (4.15.2, review E19).
+        #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             let liquid = UIGlassEffect()
             liquid.tintColor = tint.withAlphaComponent(0.6)
@@ -613,16 +655,11 @@ final class ChatBubbleView: UIView {
             effect = UIVisualEffectView(effect: liquid)
             effect.cornerConfiguration = .capsule()
         } else {
-            effect = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
-            let wash = UIView(frame: bounds)
-            wash.backgroundColor = tint.withAlphaComponent(0.6)
-            wash.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            effect.contentView.addSubview(wash)
-            effect.layer.cornerRadius = size / 2
-            effect.layer.borderWidth = 1
-            effect.layer.borderColor = UIColor.white.withAlphaComponent(0.45).cgColor
-            effect.clipsToBounds = true
+            effect = frostedGlass()
         }
+        #else
+        effect = frostedGlass()
+        #endif
         effect.frame = bounds
         addSubview(effect)
 
@@ -630,6 +667,21 @@ final class ChatBubbleView: UIView {
         glyph.path = Self.speechBubble(in: size).cgPath
         glyph.fillColor = ink.cgColor
         effect.contentView.layer.addSublayer(glyph)
+    }
+
+    /// Frosted glass, tinted with the circle's color, with a fine white edge:
+    /// the glass before iOS 26, and on any iOS for an app built with an older Xcode.
+    private func frostedGlass() -> UIVisualEffectView {
+        let effect = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
+        let wash = UIView(frame: bounds)
+        wash.backgroundColor = tint.withAlphaComponent(0.6)
+        wash.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        effect.contentView.addSubview(wash)
+        effect.layer.cornerRadius = size / 2
+        effect.layer.borderWidth = 1
+        effect.layer.borderColor = UIColor.white.withAlphaComponent(0.45).cgColor
+        effect.clipsToBounds = true
+        return effect
     }
 
     /// The website bubble's speech bubble (public/chat.js, a 24-point drawing)
@@ -660,12 +712,13 @@ final class ChatBubbleView: UIView {
             pill.frame = CGRect(x: size + offset - width, y: -offset, width: width, height: height)
             pill.isHidden = false
             dot.isHidden = true
-            accessibilityValue = text
+            accessibilityLabel = words.unread(unread)
         } else {
             pill.isHidden = true
             dot.isHidden = !online
-            accessibilityValue = nil
+            accessibilityLabel = words.chat
         }
+        accessibilityValue = nil
     }
 
     /// In the owner's corner, or where the person left it, kept inside the window.
@@ -762,7 +815,8 @@ final class ChatBubbleView: UIView {
 
 // MARK: - The chat screen
 
-/// Affiliateo's hosted chat page, full screen. Its own header has the close
+/// Affiliateo's hosted chat page, in a sheet that slides up over the app
+/// (4.15.0; LiveChat.presentChat sets it up). Its own header has the close
 /// button; links the business sends open in the browser.
 final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     static let bridgeName = "affiliateoChat"
@@ -784,7 +838,7 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
         self.dark = dark
         self.inspectable = inspectable
         super.init(nibName: nil, bundle: nil)
-        modalPresentationStyle = .fullScreen
+        modalPresentationStyle = .pageSheet
         overrideUserInterfaceStyle = dark ? .dark : .light
     }
 

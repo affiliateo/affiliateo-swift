@@ -275,4 +275,18 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertEqual(ChatRules.badgeMetrics(size: 48), .init(pillHeight: 17, pillFont: 9.5, pillPadding: 4, pillOffset: 3, dot: 14, dotOffset: 2, border: 1.5))
         XCTAssertEqual(ChatRules.badgeMetrics(size: 64), .init(pillHeight: 23, pillFont: 12.5, pillPadding: 6, pillOffset: 5, dot: 18, dotOffset: 2, border: 2))
     }
+
+    // MARK: 4.15.2
+
+    func testTheBubbleSpeaksThePersonsLanguage() {
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("fr-FR").close, "Fermer le chat")
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("pt-BR").unread(3), "Chat, 3 não lidas")
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("zh-Hans-CN").chat, "聊天")
+        XCTAssertEqual(ChatRules.ChatWords.all.count, 16)
+    }
+
+    func testAnyOtherLanguageIsEnglish() {
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("sv-SE"), ChatRules.ChatWords.forLanguage("en"))
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("").unread(2), "Chat, 2 unread")
+    }
 }
