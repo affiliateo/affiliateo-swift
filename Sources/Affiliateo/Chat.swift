@@ -327,25 +327,44 @@ final class LiveChat {
     }
 
     /// THE BUBBLE IS FOR THE APP'S PAGES (4.15.2, review E1): it sits just
-    /// above the window's root view and below anything presented over it, so
-    /// a sheet, a full-screen cover or an alert covers it. Every path that
+    /// above the app's pages and below anything presented over them, so a
+    /// sheet, a full-screen cover or an alert covers it. Every path that
     /// shows it again (a launch, the app coming back to the front, page(_:),
     /// a new look) comes through here; it used to bring itself to the front
     /// of the window and land on top of whatever was presented.
+    ///
+    /// The pages are the window's own subview that holds the root view: the
+    /// root view itself on older systems, its container on iOS 26 and later
+    /// (window, UITransitionView, UIDropShadowView, root view). A presented
+    /// screen gets a container of its own, added to the window above that
+    /// one. 4.15.2 only looked for the root view right in the window, missed
+    /// it there, and put the bubble under the app, out of sight (4.15.3).
     static func keepOnPages(_ view: UIView, in window: UIWindow) {
-        guard let root = window.rootViewController?.view, root.superview === window else {
-            // No root view in the window yet: the lowest place there is.
+        guard let root = window.rootViewController?.view, let pages = windowSubview(holding: root, in: window) else {
+            // No root view in the window yet: the lowest place there is, until
+            // the next placement (the config arriving, a page, the app coming
+            // back) finds the pages.
             if view.superview !== window { window.insertSubview(view, at: 0) }
             return
         }
         let subviews = window.subviews
         if view.superview === window,
            let mine = subviews.firstIndex(of: view),
-           let rootIndex = subviews.firstIndex(of: root),
-           mine == rootIndex + 1 {
+           let pagesIndex = subviews.firstIndex(of: pages),
+           mine == pagesIndex + 1 {
             return
         }
-        window.insertSubview(view, aboveSubview: root)
+        window.insertSubview(view, aboveSubview: pages)
+    }
+
+    /// The window's own subview that `view` is in (the view itself when it is
+    /// right in the window), or nil when it is not in this window.
+    static func windowSubview(holding view: UIView, in window: UIWindow) -> UIView? {
+        var current: UIView? = view
+        while let candidate = current, candidate.superview !== window {
+            current = candidate.superview
+        }
+        return current
     }
 
     private func removeBubble() {

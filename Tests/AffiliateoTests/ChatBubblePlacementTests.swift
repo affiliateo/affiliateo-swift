@@ -36,6 +36,31 @@ final class ChatBubblePlacementTests: XCTestCase {
         XCTAssertLessThan(subviews.firstIndex(of: bubble)!, subviews.firstIndex(of: presented)!)
     }
 
+    /// iOS 26 and later: the root view is not right in the window but inside
+    /// containers (window, UITransitionView, UIDropShadowView, root view), and
+    /// a sheet gets a container of its own above them (seen on iOS 27.0).
+    /// 4.15.2 put the bubble under all of it, out of sight (4.15.3).
+    func testItSitsAboveThePagesWhenTheyAreInAContainer() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let root = UIViewController()
+        window.rootViewController = root
+        let transition = UIView(frame: window.bounds)
+        let shadow = UIView(frame: window.bounds)
+        window.addSubview(transition)
+        transition.addSubview(shadow)
+        shadow.addSubview(root.view)
+        let bubble = UIView()
+        LiveChat.keepOnPages(bubble, in: window)
+        XCTAssertEqual(window.subviews.firstIndex(of: bubble), window.subviews.firstIndex(of: transition).map { $0 + 1 })
+        // A sheet: its own container, added to the window on top, covers it.
+        let sheet = UIView(frame: window.bounds)
+        window.addSubview(sheet)
+        LiveChat.keepOnPages(bubble, in: window)
+        let subviews = window.subviews
+        XCTAssertGreaterThan(subviews.firstIndex(of: bubble)!, subviews.firstIndex(of: transition)!)
+        XCTAssertLessThan(subviews.firstIndex(of: bubble)!, subviews.firstIndex(of: sheet)!)
+    }
+
     func testABubbleBroughtToTheFrontGoesBackDown() {
         let (window, root) = windowWithRoot()
         let presented = UIView()

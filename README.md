@@ -238,7 +238,7 @@ Affiliateo.setChatPlaceholder(String(localized: "Ask us anything"))
   Chat is off for this app in your dashboard.
 - The bubble is for your app's pages: anything you present over them (a
   sheet, a full-screen cover, an alert) covers it, also after the app comes
-  back to the front (4.15.2). People can drag it and it stays where they leave
+  back to the front (4.15.2; on iOS 26 and later from 4.15.3). People can drag it and it stays where they leave
   it. VoiceOver reads it in the phone's language, with the unread count. It shows a red number
   for replies they have not read, live while the app is open, and a green dot
   while someone on your team is online. On launch it shows at once from the

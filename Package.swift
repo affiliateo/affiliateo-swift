@@ -1,9 +1,13 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.15.2
+// SDK version: 4.15.3
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.15.3: the chat bubble shows on the app's pages again on iOS 26 and
+//   later. There the app's pages sit in a container of the window, not right
+//   in it, and 4.15.2 put the bubble under that container, out of sight. It
+//   now sits just above the container and below whatever is presented.
 // 4.15.2: the chat bubble is for the app's pages: anything presented over
 //   them (a sheet, a full-screen cover, an alert) covers it, also after the
 //   app comes back to the front or page(_:) is sent (it used to jump on top).
