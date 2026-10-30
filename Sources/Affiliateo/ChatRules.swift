@@ -92,6 +92,8 @@ enum ChatRules {
 
     // MARK: Storage, the same key names as the React Native SDK
 
+    /// Where versions before 4.15.4 kept the thread key in UserDefaults;
+    /// ChatTokenStore moves a key found there to the Keychain.
     static func tokenKey(_ appId: String) -> String { "affiliateo_chat_token_\(appId)" }
     static func positionKey(_ appId: String) -> String { "affiliateo_chat_pos_\(appId)" }
     static func greetingKey(_ appId: String) -> String { "affiliateo_chat_greeting_seen_\(appId)" }
@@ -299,11 +301,91 @@ enum ChatRules {
         return URL(string: String(string[...hash]) + kept.joined(separator: "&")) ?? url
     }
 
-    /// Whether the web view may load this address itself. Anything else is a
-    /// link the business sent, which opens in the browser so the chat stays.
-    static func isChatPage(_ url: URL, apiUrl: String) -> Bool {
-        if url.absoluteString == "about:blank" { return true }
-        return url.absoluteString.hasPrefix("\(base(apiUrl))/embed/chat/")
+    /// Whether this is THIS app's own chat page (4.15.4, review S18): on the
+    /// chat's origin, at exactly /embed/chat/{appId}. Another app's chat page
+    /// is not, so it never loads in the sheet, and never hands over a key that
+    /// would replace this person's.
+    static func isChatPage(_ url: URL, apiUrl: String, appId: String) -> Bool {
+        guard isChatOrigin(url, apiUrl: apiUrl),
+              let expected = URLComponents(string: "\(base(apiUrl))/embed/chat/\(encode(appId))")?.path,
+              let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?.path
+        else { return false }
+        return path == expected || path == expected + "/"
+    }
+
+    /// Whether the address is on the chat's origin: the scheme, host and port of `apiUrl`.
+    static func isChatOrigin(_ url: URL, apiUrl: String) -> Bool {
+        guard let api = URLComponents(string: base(apiUrl)),
+              let other = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let scheme = api.scheme?.lowercased(), scheme == "https" || scheme == "http",
+              scheme == other.scheme?.lowercased(),
+              let host = api.host?.lowercased(), !host.isEmpty, host == other.host?.lowercased()
+        else { return false }
+        return port(api) == port(other)
+    }
+
+    private static func port(_ address: URLComponents) -> Int? {
+        if let port = address.port { return port }
+        switch address.scheme?.lowercased() {
+        case "https": return 443
+        case "http": return 80
+        default: return nil
+        }
+    }
+
+    // MARK: What the chat sheet loads (4.15.4, review S18)
+
+    /// Where a navigation the chat page asks for would happen.
+    enum Frame: Equatable {
+        /// The page itself.
+        case main
+        /// A frame inside the page.
+        case sub
+        /// A new window (target="_blank", window.open).
+        case newWindow
+    }
+
+    /// What the chat sheet does with a navigation.
+    enum Navigation: Equatable {
+        /// It loads in the sheet.
+        case load
+        /// A link the person tapped: it opens in the browser, Mail or Phone.
+        case openOutside
+        /// Nothing happens.
+        case block
+    }
+
+    /// The sheet's rules for a navigation:
+    /// - the page itself loads only this app's own chat page;
+    /// - a frame inside it loads only from the chat's origin (and Cloudflare's
+    ///   challenge frame, which only shows when Cloudflare checks the visitor
+    ///   before serving the chat page);
+    /// - anything else leaves the sheet only as a link the person TAPPED (web,
+    ///   email or phone), never for a script or a redirect.
+    static func navigation(to url: URL, frame: Frame, tapped: Bool, apiUrl: String, appId: String) -> Navigation {
+        switch frame {
+        case .main:
+            if url.absoluteString == "about:blank" || isChatPage(url, apiUrl: apiUrl, appId: appId) { return .load }
+        case .sub:
+            let address = url.absoluteString
+            let inside = address == "about:blank" || address == "about:srcdoc"
+                || isChatOrigin(url, apiUrl: apiUrl) || isCloudflareChallenge(url)
+            return inside ? .load : .block
+        case .newWindow:
+            break
+        }
+        return tapped && opensOutside(url) ? .openOutside : .block
+    }
+
+    /// The links the sheet hands to the phone: web pages, email and phone numbers.
+    static func opensOutside(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return ["http", "https", "mailto", "tel"].contains(scheme)
+    }
+
+    /// Cloudflare's own challenge frame (https://challenges.cloudflare.com).
+    static func isCloudflareChallenge(_ url: URL) -> Bool {
+        url.scheme?.lowercased() == "https" && url.host?.lowercased() == "challenges.cloudflare.com"
     }
 
     /// One message from the page: a JSON string such as

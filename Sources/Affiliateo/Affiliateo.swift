@@ -357,7 +357,7 @@ public final class AffiliateoManager: ObservableObject {
         // up first, here on the caller's thread (4.15.1): a key the open chat
         // page hands over from now on is not saved again.
         ChatSignOuts.bump()
-        UserDefaults.standard.removeObject(forKey: ChatRules.tokenKey(campaignId))
+        ChatTokenStore.standard.clear(appId: campaignId)
         #if os(iOS)
         Task { @MainActor in LiveChat.shared.forget() }
         #endif
@@ -452,7 +452,7 @@ public final class AffiliateoManager: ObservableObject {
                 // exactly as on logout(). Signing in from anonymous keeps it.
                 if ChatRules.switchesPerson(previous: self.userId, next: uid) {
                     ChatSignOuts.bump()
-                    UserDefaults.standard.removeObject(forKey: ChatRules.tokenKey(self.campaignId))
+                    ChatTokenStore.standard.clear(appId: self.campaignId)
                     #if os(iOS)
                     LiveChat.shared.forget()
                     #endif

@@ -252,9 +252,11 @@ Affiliateo.setChatPlaceholder(String(localized: "Ask us anything"))
   rules.
 - The chat screen is Affiliateo's hosted chat page in the person's language,
   in a sheet that slides up over the app (4.15.0; it was full screen). Pulled
-  down or the page's close button closes it. Links you send open in Safari.
+  down or the page's close button closes it. Links you send open in Safari
+  when the person taps them (4.15.4).
 - The person needs no account. Their first message opens a thread, and the
-  key to it is kept on the phone (deleting the app starts a new thread). Your
+  key to it is kept in the Keychain, on this phone only and never in a backup
+  (4.15.4; deleting the app starts a new thread). Your
   inbox labels the thread with the device, the Affiliateo visitor and, after
   `identify(_:)`, your user id; none of them while the person has opted out.
 - App Store privacy: chat messages are **Customer Support** data (under User

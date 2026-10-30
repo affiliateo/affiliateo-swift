@@ -1,9 +1,17 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.15.3
+// SDK version: 4.15.4
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.15.4: the chat sheet opens a link in the browser (or Mail, or Phone)
+//   only when the person taps it, never for a script or a redirect. It loads
+//   only this app's own chat page: another app's chat page can no longer load
+//   in it or hand over a key that replaces the person's. Frames inside the
+//   page stay on Affiliateo's own address. The thread key moved from
+//   UserDefaults to the Keychain, on this phone only and after its first
+//   unlock, so it is never in a backup or on another phone; a key an older
+//   version kept moves over once. Deleting the app still starts a new thread.
 // 4.15.3: the chat bubble shows on the app's pages again on iOS 26 and
 //   later. There the app's pages sit in a container of the window, not right
 //   in it, and 4.15.2 put the bubble under that container, out of sight. It

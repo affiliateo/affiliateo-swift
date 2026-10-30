@@ -21,9 +21,9 @@ import WebKit
 /// number live.
 ///
 /// The visitor's key to their thread (a token the server hands out with their
-/// first message) is kept in UserDefaults, the React Native SDK's choice too:
-/// a reinstall clears it and starts a new thread, which is what the server
-/// expects. The Keychain would carry it past a reinstall. logout() drops it
+/// first message) is kept in the Keychain, on this phone only (4.15.4, review
+/// S18; ChatTokenStore): never in a backup, and deleting the app still starts
+/// a new thread, which is what the server expects. logout() drops it
 /// (4.14.2), so the next person on the phone starts a new thread too.
 @MainActor
 final class LiveChat {
@@ -150,7 +150,7 @@ final class LiveChat {
     }
 
     /// The person signed out (logout(), which has already dropped their token
-    /// from UserDefaults). Their red number, socket and open chat go too, so
+    /// from the Keychain). Their red number, socket and open chat go too, so
     /// whoever signs in next starts a new thread. The bubble's place and the
     /// greeting seen belong to the phone, not the person: they stay.
     func forget() {
@@ -244,8 +244,7 @@ final class LiveChat {
     }
 
     private func storedToken(_ appId: String) -> String? {
-        let token = UserDefaults.standard.string(forKey: ChatRules.tokenKey(appId))
-        return ChatRules.isToken(token) ? token : nil
+        ChatTokenStore.standard.token(appId: appId)
     }
 
     private func observeForeground() {
@@ -459,13 +458,13 @@ final class LiveChat {
             placeholder: placeholder
         ) else { return }
         let appId = env.appId
-        let controller = ChatViewController(url: url, apiUrl: env.apiUrl, dark: dark, inspectable: env.debug)
+        let controller = ChatViewController(url: url, apiUrl: env.apiUrl, appId: appId, dark: dark, inspectable: env.debug)
         // A key the page hands over is saved only while nobody signed out (or
         // switched person) since this screen opened (4.15.1).
         let openedAt = ChatSignOuts.current
         controller.onToken = { token in
             guard ChatSignOuts.current == openedAt else { return }
-            UserDefaults.standard.set(token, forKey: ChatRules.tokenKey(appId))
+            ChatTokenStore.standard.save(token, appId: appId)
         }
         controller.onRead = { LiveChat.shared.setUnread(0) }
         controller.onClosed = { LiveChat.shared.chatClosed() }
@@ -836,7 +835,8 @@ final class ChatBubbleView: UIView {
 
 /// Affiliateo's hosted chat page, in a sheet that slides up over the app
 /// (4.15.0; LiveChat.presentChat sets it up). Its own header has the close
-/// button; links the business sends open in the browser.
+/// button; links the business sends open in the browser when the person taps
+/// them. Only this app's own chat page loads in it (4.15.4, review S18).
 final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     static let bridgeName = "affiliateoChat"
 
@@ -846,14 +846,17 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
 
     private var url: URL
     private let apiUrl: String
+    /// The app this sheet was opened for: only its chat page loads and speaks.
+    private let appId: String
     private let dark: Bool
     private let inspectable: Bool
     private var webView: WKWebView?
     private var finished = false
 
-    init(url: URL, apiUrl: String, dark: Bool, inspectable: Bool) {
+    init(url: URL, apiUrl: String, appId: String, dark: Bool, inspectable: Bool) {
         self.url = url
         self.apiUrl = apiUrl
+        self.appId = appId
         self.dark = dark
         self.inspectable = inspectable
         super.init(nibName: nil, bundle: nil)
@@ -874,7 +877,7 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
         let configuration = WKWebViewConfiguration()
         // A private store for this screen only (4.15.1): the page's own copy of
         // the key and its message cache never reach the disk, so nothing is
-        // left after a sign-out. The key lives in UserDefaults and goes with
+        // left after a sign-out. The key lives in the Keychain and goes with
         // logout(); the page loads from the server each time.
         configuration.websiteDataStore = .nonPersistent()
         configuration.userContentController.add(WeakScriptHandler(self), name: Self.bridgeName)
@@ -906,10 +909,14 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
     }
 
     fileprivate func received(_ message: WKScriptMessage) {
-        // Only the chat page itself may speak: never a frame inside it.
+        // Only this app's own chat page may speak: never a frame inside it,
+        // and never another app's chat page (4.15.4, review S18), whose key
+        // would replace this person's.
         guard message.frameInfo.isMainFrame,
               let host = URL(string: apiUrl)?.host,
-              message.frameInfo.securityOrigin.host == host
+              message.frameInfo.securityOrigin.host == host,
+              let page = message.frameInfo.request.url,
+              ChatRules.isChatPage(page, apiUrl: apiUrl, appId: appId)
         else { return }
         switch ChatRules.parseHostMessage(message.body) {
         case .token(let token): onToken?(token)
@@ -928,6 +935,9 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
 
     // MARK: Navigation
 
+    /// ChatRules.navigation decides (4.15.4, review S18): this app's own chat
+    /// page loads, frames stay on the chat's origin, and a link leaves the
+    /// sheet only when the person taps it, never for a script or a redirect.
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
@@ -937,23 +947,45 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
             decisionHandler(.cancel)
             return
         }
-        if navigationAction.targetFrame?.isMainFrame == false || ChatRules.isChatPage(target, apiUrl: apiUrl) {
-            decisionHandler(.allow)
-            return
+        let frame: ChatRules.Frame
+        if let targetFrame = navigationAction.targetFrame {
+            frame = targetFrame.isMainFrame ? .main : .sub
+        } else {
+            frame = .newWindow
         }
-        decisionHandler(.cancel)
-        openOutside(target)
+        switch decide(target, frame: frame, navigationAction) {
+        case .load:
+            decisionHandler(.allow)
+        case .openOutside:
+            decisionHandler(.cancel)
+            openOutside(target)
+        case .block:
+            decisionHandler(.cancel)
+        }
     }
 
-    /// A link that asks for a new window (target="_blank").
+    /// A link that asks for a new window (target="_blank", window.open): it
+    /// opens in the browser when the person tapped it, and never in the sheet.
     func webView(
         _ webView: WKWebView,
         createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        if let target = navigationAction.request.url { openOutside(target) }
+        if let target = navigationAction.request.url, decide(target, frame: .newWindow, navigationAction) == .openOutside {
+            openOutside(target)
+        }
         return nil
+    }
+
+    private func decide(_ target: URL, frame: ChatRules.Frame, _ action: WKNavigationAction) -> ChatRules.Navigation {
+        ChatRules.navigation(
+            to: target,
+            frame: frame,
+            tapped: action.navigationType == .linkActivated,
+            apiUrl: apiUrl,
+            appId: appId
+        )
     }
 
     /// iOS ended the page's process (memory pressure): load it again, without
@@ -963,7 +995,7 @@ final class ChatViewController: UIViewController, WKNavigationDelegate, WKUIDele
     }
 
     private func openOutside(_ target: URL) {
-        guard let scheme = target.scheme?.lowercased(), ["http", "https", "mailto", "tel"].contains(scheme) else { return }
+        guard ChatRules.opensOutside(target) else { return }
         UIApplication.shared.open(target)
     }
 }

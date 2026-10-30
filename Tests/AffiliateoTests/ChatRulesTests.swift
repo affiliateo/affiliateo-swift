@@ -103,13 +103,60 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertEqual(ChatRules.withoutFresh(withToken), withToken)
     }
 
-    func testOnlyTheChatPageLoadsInside() {
+    func testOnlyThisAppsChatPageLoadsInside() {
         let api = "https://affiliateo.com"
-        XCTAssertTrue(ChatRules.isChatPage(URL(string: "https://affiliateo.com/embed/chat/my-app?lang=en#p=ios")!, apiUrl: api))
-        XCTAssertTrue(ChatRules.isChatPage(URL(string: "about:blank")!, apiUrl: api))
-        XCTAssertFalse(ChatRules.isChatPage(URL(string: "https://affiliateo.com/pricing")!, apiUrl: api))
-        XCTAssertFalse(ChatRules.isChatPage(URL(string: "https://affiliateo.com.evil.example/embed/chat/x")!, apiUrl: api))
-        XCTAssertFalse(ChatRules.isChatPage(URL(string: "https://example.com/")!, apiUrl: api))
+        func page(_ s: String) -> Bool { ChatRules.isChatPage(URL(string: s)!, apiUrl: api, appId: "my-app") }
+        XCTAssertTrue(page("https://affiliateo.com/embed/chat/my-app?lang=en#p=ios"))
+        XCTAssertTrue(page("https://affiliateo.com/embed/chat/my-app"))
+        XCTAssertTrue(page("https://affiliateo.com/embed/chat/my-app/"))
+        XCTAssertTrue(page("https://AFFILIATEO.com:443/embed/chat/my-app?lang=en"))
+        // 4.15.4 (review S18): another app's chat page is not this one.
+        XCTAssertFalse(page("https://affiliateo.com/embed/chat/other-app?lang=en"))
+        XCTAssertFalse(page("https://affiliateo.com/embed/chat/my-app-2"))
+        XCTAssertFalse(page("https://affiliateo.com/embed/chat/my-app/more"))
+        XCTAssertFalse(page("https://affiliateo.com/embed/chat/"))
+        XCTAssertFalse(page("http://affiliateo.com/embed/chat/my-app"))
+        XCTAssertFalse(page("https://affiliateo.com:8443/embed/chat/my-app"))
+        XCTAssertFalse(page("https://affiliateo.com/pricing"))
+        XCTAssertFalse(page("https://affiliateo.com.evil.example/embed/chat/my-app"))
+        XCTAssertFalse(page("https://evil.example/embed/chat/my-app"))
+        XCTAssertFalse(page("about:blank"))
+        // An app id the address has to encode.
+        XCTAssertTrue(ChatRules.isChatPage(URL(string: "https://affiliateo.com/embed/chat/my%20app")!, apiUrl: api, appId: "my app"))
+    }
+
+    /// 4.15.4 (review S18): the sheet loads only this app's chat page, keeps
+    /// frames on the chat's origin, and lets a link out only on a real tap.
+    func testWhatTheSheetLoads() {
+        let api = "https://affiliateo.com/"
+        func go(_ s: String, _ frame: ChatRules.Frame, tapped: Bool = false) -> ChatRules.Navigation {
+            ChatRules.navigation(to: URL(string: s)!, frame: frame, tapped: tapped, apiUrl: api, appId: "my-app")
+        }
+        // The page itself.
+        XCTAssertEqual(go("https://affiliateo.com/embed/chat/my-app?lang=en#p=ios&fresh=1", .main), .load)
+        XCTAssertEqual(go("about:blank", .main), .load)
+        XCTAssertEqual(go("https://affiliateo.com/embed/chat/other-app?lang=en", .main), .block)
+        XCTAssertEqual(go("https://affiliateo.com/embed/chat/other-app?lang=en", .main, tapped: true), .openOutside)
+        // A link the business sent: out only when tapped, never for a script or a redirect.
+        XCTAssertEqual(go("https://shop.example/sale", .main, tapped: true), .openOutside)
+        XCTAssertEqual(go("https://shop.example/sale", .main), .block)
+        XCTAssertEqual(go("mailto:help@shop.example", .main, tapped: true), .openOutside)
+        XCTAssertEqual(go("tel:+15551234567", .main, tapped: true), .openOutside)
+        XCTAssertEqual(go("myapp://settings", .main, tapped: true), .block)
+        XCTAssertEqual(go("javascript:alert(1)", .main, tapped: true), .block)
+        // A new window: never in the sheet.
+        XCTAssertEqual(go("https://shop.example/sale", .newWindow, tapped: true), .openOutside)
+        XCTAssertEqual(go("https://shop.example/sale", .newWindow), .block)
+        XCTAssertEqual(go("https://affiliateo.com/embed/chat/my-app", .newWindow), .block)
+        // A frame inside the page: the chat's origin only.
+        XCTAssertEqual(go("https://affiliateo.com/anything", .sub), .load)
+        XCTAssertEqual(go("about:blank", .sub), .load)
+        XCTAssertEqual(go("about:srcdoc", .sub), .load)
+        XCTAssertEqual(go("https://challenges.cloudflare.com/cdn-cgi/challenge-platform/x", .sub), .load)
+        XCTAssertEqual(go("https://evil.example/frame", .sub), .block)
+        XCTAssertEqual(go("https://evil.example/frame", .sub, tapped: true), .block)
+        XCTAssertEqual(go("http://affiliateo.com/frame", .sub), .block)
+        XCTAssertEqual(go("myapp://settings", .sub, tapped: true), .block)
     }
 
     func testConfig() {
