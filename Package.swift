@@ -1,10 +1,10 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.15.4
+// SDK version: 4.16.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
-// Not released yet: while the app shows the chat bubble and is in front,
+// 4.16.0: while the app shows the chat bubble and is in front,
 //   the app's own live channel (/api/live-chat/app-stream) brings the owner's
 //   on/off switch and the team's Online switches at once. Switched off, the
 //   bubble goes and an open chat closes; otherwise the new look, corner,
