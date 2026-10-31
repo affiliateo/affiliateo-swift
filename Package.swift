@@ -4,6 +4,11 @@
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// Not released yet: while the app shows the chat bubble and is in front,
+//   the app's own live channel (/api/live-chat/app-stream) brings the owner's
+//   on/off switch and the team's Online switches at once. Switched off, the
+//   bubble goes and an open chat closes; otherwise the new look, corner,
+//   size, screens, greeting and green dot apply as a fresh config read does.
 // 4.15.4: the chat sheet opens a link in the browser (or Mail, or Phone)
 //   only when the person taps it, never for a script or a redirect. It loads
 //   only this app's own chat page: another app's chat page can no longer load

@@ -18,7 +18,9 @@ import WebKit
 /// name the app last passed to `Affiliateo.page(_:)`), and a greeting that
 /// counts as one unread message until the chat is first opened. While the app
 /// is in front and the chat is closed, a socket on the thread keeps the red
-/// number live.
+/// number live. While the app shows the bubble and is in front, the app's own
+/// channel brings the owner's on/off switch and the team's Online switches at
+/// once (a `config` frame, applied as a fresh config read is).
 ///
 /// The visitor's key to their thread (a token the server hands out with their
 /// first message) is kept in the Keychain, on this phone only (4.15.4, review
@@ -29,7 +31,8 @@ import WebKit
 final class LiveChat {
     static let shared = LiveChat()
 
-    private var config: ChatRules.Config?
+    /// The last config, from a read or the app channel (internal for the tests).
+    private(set) var config: ChatRules.Config?
     private var configCheckedAt: Date?
     private var configTask: Task<ChatRules.Config, Never>?
     private var unreadCheckedAt: Date?
@@ -44,7 +47,8 @@ final class LiveChat {
     private var wantsOpen = false
     private var observing = false
     private var inFront = true
-    private var bubble: ChatBubbleView?
+    /// Internal for the tests.
+    var bubble: ChatBubbleView?
     private weak var screen: ChatViewController?
     /// Points the app keeps free above the bottom safe area (its tab bar or
     /// floating button), set with Affiliateo.setChatBubblePadding(bottom:).
@@ -59,6 +63,15 @@ final class LiveChat {
     private var socketTries = 0
     private var socketRetry: Task<Void, Never>?
     private var socketPing: Timer?
+
+    // The app channel: the owner's switch and the team's Online switches, live.
+    private var appSocket: URLSessionWebSocketTask?
+    private var appTries = 0
+    private var appRetry: Task<Void, Never>?
+    private var appPing: Timer?
+    /// The server refused the app channel (no such app, or the chat is off):
+    /// not tried again until a config read says the chat is on.
+    private var appRefused = false
 
     private init() {}
 
@@ -110,6 +123,7 @@ final class LiveChat {
     func hideBubble() {
         wantsBubble = false
         removeBubble()
+        syncAppChannel()
     }
 
     func open() {
@@ -215,13 +229,39 @@ final class LiveChat {
         configTask = nil
         config = answer
         configCheckedAt = Date()
-        // Somebody who already wrote has seen the greeting.
-        if answer.enabled, let id = answer.bubble.greetingId, storedToken(env.appId) == nil {
-            greetingPending = UserDefaults.standard.string(forKey: ChatRules.greetingKey(env.appId)) != id
+        noteGreeting(answer, appId: env.appId)
+        // The chat is on: the app channel may be tried again.
+        if answer.enabled { appRefused = false }
+        return answer
+    }
+
+    /// Somebody who already wrote has seen the greeting.
+    private func noteGreeting(_ answer: ChatRules.Config, appId: String) {
+        if answer.enabled, let id = answer.bubble.greetingId, storedToken(appId) == nil {
+            greetingPending = UserDefaults.standard.string(forKey: ChatRules.greetingKey(appId)) != id
         } else {
             greetingPending = false
         }
-        return answer
+    }
+
+    /// A `config` frame from the app channel: kept as a fresh config read
+    /// would be (the current config, the phone's saved answer, its age) and
+    /// applied the same way. Off, the bubble goes and an open chat closes.
+    func receivedAppFrame(_ text: String) {
+        guard let frame = ChatRules.parseAppFrame(text) else { return }
+        let answer = frame.config
+        if let env {
+            UserDefaults.standard.set(frame.saved, forKey: ChatRules.configKey(env.appId))
+            noteGreeting(answer, appId: env.appId)
+        }
+        config = answer
+        configCheckedAt = Date()
+        if !answer.enabled {
+            log("the chat was switched off for this app")
+            screen?.dismiss(animated: true)
+        }
+        placeBubble()
+        paintBubble()
     }
 
     /// Replies the person has not seen, for the red number on the bubble.
@@ -281,6 +321,7 @@ final class LiveChat {
     private func wentAway() {
         inFront = false
         stopSocket()
+        syncAppChannel()
     }
 
     private func setUnread(_ count: Int) {
@@ -295,7 +336,8 @@ final class LiveChat {
     // MARK: The bubble
 
     private func placeBubble() {
-        guard wantsBubble, let env, let config, config.enabled, config.showBubble else {
+        syncAppChannel()
+        guard ChatRules.showsBubble(wanted: wantsBubble, config: config), let env, let config else {
             removeBubble()
             return
         }
@@ -437,6 +479,75 @@ final class LiveChat {
         socketRetry?.cancel()
         socketRetry = nil
         dropSocket()
+    }
+
+    // MARK: The app channel
+
+    /// Opens or closes the app channel to match ChatRules.appChannelWanted.
+    /// The chat sheet may be open or closed, and the bubble hidden on this
+    /// screen by the page rules: the channel stays while the app shows it.
+    private func syncAppChannel() {
+        if env != nil, ChatRules.appChannelWanted(wantsBubble: wantsBubble, inFront: inFront, config: config, refused: appRefused) {
+            startAppChannel()
+        } else {
+            stopAppChannel()
+        }
+    }
+
+    private func startAppChannel() {
+        guard appSocket == nil, appRetry == nil, let env,
+              let url = ChatRules.appChannelURL(apiUrl: env.apiUrl, appId: env.appId)
+        else { return }
+        let task = URLSession.shared.webSocketTask(with: url)
+        appSocket = task
+        task.resume()
+        appPing = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak task] _ in
+            task?.send(.string("ping")) { _ in }
+        }
+        Task { await listenApp(task) }
+    }
+
+    private func listenApp(_ task: URLSessionWebSocketTask) async {
+        while appSocket === task {
+            do {
+                let message = try await task.receive()
+                appTries = 0
+                guard case .string(let text) = message, text != "pong" else { continue }
+                receivedAppFrame(text)
+            } catch {
+                guard appSocket === task else { return }
+                let status = (task.response as? HTTPURLResponse)?.statusCode
+                dropAppChannel()
+                if ChatRules.refusesAppChannel(status: status) {
+                    appRefused = true
+                    log("app channel refused (\(status ?? 0))")
+                    return
+                }
+                appTries += 1
+                let delay = ChatRules.appChannelDelay(tries: appTries, jitter: Double.random(in: 0...1))
+                appRetry = Task {
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    guard !Task.isCancelled else { return }
+                    self.appRetry = nil
+                    self.syncAppChannel()
+                }
+                return
+            }
+        }
+    }
+
+    private func dropAppChannel() {
+        appPing?.invalidate()
+        appPing = nil
+        appSocket?.cancel(with: .goingAway, reason: nil)
+        appSocket = nil
+    }
+
+    private func stopAppChannel() {
+        appRetry?.cancel()
+        appRetry = nil
+        appTries = 0
+        dropAppChannel()
     }
 
     // MARK: The chat screen

@@ -249,6 +249,61 @@ enum ChatRules {
         )
     }
 
+    /// Whether the bubble belongs on the app's pages at all: the app asked
+    /// for it and the chat is on with its bubble showing. A config that says
+    /// the chat is off (a fresh read or the app channel) takes it away.
+    static func showsBubble(wanted: Bool, config: Config?) -> Bool {
+        guard wanted, let config else { return false }
+        return config.enabled && config.showBubble
+    }
+
+    // MARK: The app channel
+
+    /// The app's own live channel, for everyone with the bubble on screen:
+    /// a change of the owner's on/off switch or of a teammate's Online switch
+    /// arrives on it at once as a `config` frame. It needs no key.
+    static func appChannelURL(apiUrl: String, appId: String) -> URL? {
+        let ws = base(apiUrl).replacingOccurrences(of: "http", with: "ws", options: .anchored)
+        return URL(string: "\(ws)/api/live-chat/app-stream?app=\(encode(appId))")
+    }
+
+    /// A `config` frame from the app channel: `config` is exactly what
+    /// /api/live-chat/config answers, read with the same parser. Also the
+    /// JSON to keep as the phone's saved answer. Nil for any other frame.
+    static func parseAppFrame(_ text: String) -> (config: Config, saved: Data)? {
+        guard let data = text.data(using: .utf8),
+              let frame = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              frame["kind"] as? String == "live_chat",
+              frame["event"] as? String == "config",
+              let inner = frame["config"] as? [String: Any],
+              let saved = try? JSONSerialization.data(withJSONObject: inner)
+        else { return nil }
+        return (parseConfig(saved), saved)
+    }
+
+    /// Whether the app channel should be open: the app shows the bubble, it
+    /// is in front, the chat is on, and the server has not refused it since
+    /// the last config read.
+    static func appChannelWanted(wantsBubble: Bool, inFront: Bool, config: Config?, refused: Bool) -> Bool {
+        wantsBubble && inFront && !refused && config?.enabled == true
+    }
+
+    /// A refusal of the app channel (no such app, or its chat is off): it is
+    /// not tried again until a config read says the chat is on. A full
+    /// server (429) or a timeout (408) is tried again later.
+    static func refusesAppChannel(status: Int?) -> Bool {
+        guard let status, (400..<500).contains(status) else { return false }
+        return status != 408 && status != 429
+    }
+
+    /// The wait before try number `tries` (1 and up) to reach the app
+    /// channel again: 2 s doubling up to 60 s, plus up to a quarter more
+    /// (`jitter` 0 to 1), so phones do not all come back at once.
+    static func appChannelDelay(tries: Int, jitter: Double) -> TimeInterval {
+        let base = min(60, 2 * pow(2, Double(max(0, min(tries, 7) - 1))))
+        return base * (1 + 0.25 * max(0, min(jitter, 1)))
+    }
+
     static func parseUnread(_ data: Data) -> Int? {
         guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let unread = json["unread"] as? Int, unread >= 0
