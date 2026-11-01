@@ -15,9 +15,14 @@ import Network
 ///   - In-memory `queue` array of QueuedEvent (id + request descriptor + retries)
 ///   - Persisted to UserDefaults under STORAGE_KEY as JSON on every mutation
 ///   - Background Timer fires every FLUSH_INTERVAL_SECS to attempt delivery
+///   - A flush sends consecutive /mobile/event entries for the same app and
+///     device as ONE request (4.16.1, see `plan(_:)`); every other entry
+///     still goes alone, in queue order
 ///   - NWPathMonitor pauses flushing while offline; an immediate flush
 ///     fires the moment connectivity returns (no waiting for the timer)
-///   - Failed events bump a per-event retry counter; dropped after MAX_RETRIES
+///   - Failed events bump a per-event retry counter; dropped after MAX_RETRIES.
+///     Entries that shared a request share its outcome: all leave on a 2xx,
+///     all stay (each counting a try) otherwise
 ///
 /// Why UserDefaults instead of FileManager / Keychain:
 ///   UserDefaults is the platform-idiomatic key-value store for small
@@ -43,6 +48,25 @@ final class EventQueue {
         var retries: Int
     }
 
+    /// Sends one request body to one endpoint and answers whether it landed
+    /// (a 2xx). The SDK uses `post(endpoint:body:)`; tests pass their own.
+    typealias Sender = (_ endpoint: String, _ body: Data) async -> Bool
+
+    /// One request of a flush (4.16.1): the body it sends and the queued
+    /// entries it carries. They leave the queue together on a 2xx, and stay
+    /// together otherwise.
+    struct Delivery {
+        let endpoint: String
+        let body: Data
+        let entryIds: [String]
+    }
+
+    /// Caps on one merged /mobile/event request (4.16.1). The server refuses
+    /// more than 100 events (a 400) and a body over 64 KB (a 413); 60,000
+    /// bytes leaves a margin under the second.
+    static let maxEventsPerRequest = 100
+    static let maxBodyBytes = 60_000
+
     private let storageKey = "affiliateo_event_queue"
     private let maxRetries = 3
     private let sizeFlushThreshold = 10
@@ -55,6 +79,8 @@ final class EventQueue {
     private let flushIntervalSecs: TimeInterval
 
     private let userDefaults: UserDefaults
+    private let autoFlush: Bool
+    private let send: Sender
     private var queue: [QueuedEvent] = []
     private var flushTimer: Timer?
     private var isFlushing = false
@@ -73,16 +99,23 @@ final class EventQueue {
     // every field, which is more error-prone.
     private let serialQueue = DispatchQueue(label: "com.affiliateo.queue")
 
+    /// `autoFlush: false` (tests only) starts no timer and no network
+    /// monitor and never flushes on its own: only `flush()` sends.
     init(
         userDefaults: UserDefaults = .standard,
         flushIntervalSecs: TimeInterval = 5,
-        maxQueueSize: Int = 100
+        maxQueueSize: Int = 100,
+        autoFlush: Bool = true,
+        send: @escaping Sender = EventQueue.post(endpoint:body:)
     ) {
         self.userDefaults = userDefaults
         // Clamp to sane bounds so a misconfigured host can't break the queue.
         self.flushIntervalSecs = max(1, min(60, flushIntervalSecs))
         self.maxQueueSize = max(10, min(1000, maxQueueSize))
+        self.autoFlush = autoFlush
+        self.send = send
         loadFromDisk()
+        guard autoFlush else { return }
         startNetworkMonitor()
         startFlushTimer()
         // Catch-up flush on init in case the previous app session ended
@@ -119,7 +152,7 @@ final class EventQueue {
                 self.queue.removeFirst(self.queue.count - self.maxQueueSize)
             }
             self.persist()
-            if self.queue.count >= self.sizeFlushThreshold {
+            if self.autoFlush && self.queue.count >= self.sizeFlushThreshold {
                 self.scheduleFlush()
             }
         }
@@ -128,6 +161,8 @@ final class EventQueue {
     /// Try to deliver every queued event. Each event gets one attempt
     /// per flush; failures bump retries and stay queued. Events that
     /// hit maxRetries are dropped. Skipped entirely when offline.
+    /// Since 4.16.1 the events of one flush share requests (see `plan(_:)`),
+    /// and the call returns once the queue is saved.
     func flush() async {
         // Capture the work to do atomically off the serial queue, so the
         // network calls don't block other enqueue/flush calls.
@@ -144,18 +179,63 @@ final class EventQueue {
         }
         if snapshot.isEmpty { return }
 
-        // Per-event delivery. Sequential to keep the retry semantics
-        // simple — head-of-line blocking is fine because all events go
-        // to the same server and we already bound the snapshot.
-        for event in snapshot {
-            let ok = await sendOnce(event: event)
-            await applyResult(event: event, ok: ok)
+        // One request per Delivery: the snapshot's events go out together,
+        // per app and device, instead of one request each (4.16.1). Still
+        // sequential, so the server sees everything in queue order and the
+        // retry rules stay simple. Head-of-line blocking is fine because all
+        // requests go to the same server and the snapshot is bounded.
+        for delivery in EventQueue.plan(snapshot) {
+            let ok = await send(delivery.endpoint, delivery.body)
+            await applyResult(entryIds: delivery.entryIds, ok: ok)
         }
 
-        serialQueue.async { [weak self] in
-            self?.persist()
-            self?.isFlushing = false
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            serialQueue.async { [weak self] in
+                self?.persist()
+                self?.isFlushing = false
+                cont.resume()
+            }
         }
+    }
+
+    /// Turns a flush's snapshot into its requests, in queue order (4.16.1).
+    ///
+    /// Consecutive /mobile/event entries for the same endpoint, app
+    /// (campaign_id) and device go in one request, their `events` arrays
+    /// joined in order: at most `maxEvents` events and `maxBytes` of body, and
+    /// a new request starts where either cap would be passed. Each event keeps
+    /// its own fields (event_id, timestamp, screen, metadata) as queued.
+    ///
+    /// Every other entry (ad ids, purchases, and an event entry that holds
+    /// anything besides campaign_id, device_id and events) is a request of
+    /// its own, exactly as queued, and keeps its place between the events.
+    /// A request that carries one entry sends that entry's queued bytes, so an
+    /// entry already over a cap on its own is sent as it always was.
+    static func plan(
+        _ entries: [QueuedEvent],
+        maxEvents: Int = maxEventsPerRequest,
+        maxBytes: Int = maxBodyBytes
+    ) -> [Delivery] {
+        var deliveries: [Delivery] = []
+        var batch: EventBatch?
+
+        for entry in entries {
+            guard let parts = EventParts(entry) else {
+                if let open = batch { deliveries.append(open.delivery()) }
+                batch = nil
+                deliveries.append(Delivery(endpoint: entry.endpoint, body: entry.payloadJson, entryIds: [entry.id]))
+                continue
+            }
+            if var open = batch, open.accepts(parts, maxEvents: maxEvents, maxBytes: maxBytes) {
+                open.add(parts)
+                batch = open
+            } else {
+                if let open = batch { deliveries.append(open.delivery()) }
+                batch = EventBatch(parts)
+            }
+        }
+        if let open = batch { deliveries.append(open.delivery()) }
+        return deliveries
     }
 
     /// Wipe all queued events. Called by reset() and optOut().
@@ -183,6 +263,11 @@ final class EventQueue {
     /// Read-only count. Used by tests / debug helpers.
     var size: Int {
         serialQueue.sync { queue.count }
+    }
+
+    /// Read-only copy of the queue, retries included. Used by tests.
+    var pending: [QueuedEvent] {
+        serialQueue.sync { queue }
     }
 
     // MARK: - Private
@@ -231,12 +316,13 @@ final class EventQueue {
         #endif
     }
 
-    private func sendOnce(event: QueuedEvent) async -> Bool {
-        guard let url = URL(string: event.endpoint) else { return false }
+    /// The SDK's Sender: one POST with a JSON body.
+    static func post(endpoint: String, body: Data) async -> Bool {
+        guard let url = URL(string: endpoint) else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = event.payloadJson
+        req.httpBody = body
         do {
             let (_, response) = try await URLSession.shared.data(for: req)
             if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
@@ -248,20 +334,157 @@ final class EventQueue {
         }
     }
 
-    private func applyResult(event: QueuedEvent, ok: Bool) async {
+    /// One request's outcome for every entry it carried: all removed on a
+    /// 2xx; otherwise each stays and counts a try, the way a lone entry
+    /// always did, and one that reaches maxRetries is dropped.
+    private func applyResult(entryIds: [String], ok: Bool) async {
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             serialQueue.async { [weak self] in
                 guard let self = self else { cont.resume(); return }
                 if ok {
-                    self.queue.removeAll { $0.id == event.id }
-                } else if let idx = self.queue.firstIndex(where: { $0.id == event.id }) {
-                    self.queue[idx].retries += 1
-                    if self.queue[idx].retries >= self.maxRetries {
-                        self.queue.remove(at: idx)
+                    let sent = Set(entryIds)
+                    self.queue.removeAll { sent.contains($0.id) }
+                } else {
+                    for id in entryIds {
+                        // Gone already when clear() or the size cap ran meanwhile.
+                        guard let idx = self.queue.firstIndex(where: { $0.id == id }) else { continue }
+                        self.queue[idx].retries += 1
+                        if self.queue[idx].retries >= self.maxRetries {
+                            self.queue.remove(at: idx)
+                        }
                     }
                 }
                 cont.resume()
             }
         }
     }
+}
+
+// MARK: - Merging events (4.16.1)
+
+private let mobileEventPath = "/api/v1/mobile/event"
+
+/// A queued /mobile/event entry taken apart for merging: its app, its device
+/// and each of its events as JSON. Nil for an entry of another endpoint, and
+/// for one that does not read as exactly campaign_id, device_id and a
+/// non-empty events array of objects (it is then sent alone, as queued).
+private struct EventParts {
+    let entry: EventQueue.QueuedEvent
+    let campaignId: String
+    let deviceId: String
+    let events: [Data]
+    /// The events' bytes, without the commas between them.
+    let eventBytes: Int
+    /// The merged body's start, `{"campaign_id":..,"device_id":..,"events":[`.
+    let head: Data
+
+    init?(_ entry: EventQueue.QueuedEvent) {
+        guard entry.endpoint.hasSuffix(mobileEventPath),
+              let payload = (try? JSONSerialization.jsonObject(with: entry.payloadJson)) as? [String: Any],
+              Set(payload.keys) == ["campaign_id", "device_id", "events"],
+              let campaignId = payload["campaign_id"] as? String,
+              let deviceId = payload["device_id"] as? String,
+              let events = payload["events"] as? [[String: Any]],
+              !events.isEmpty
+        else { return nil }
+        guard let head = EventParts.head(campaignId, deviceId) else { return nil }
+        var blobs: [Data] = []
+        blobs.reserveCapacity(events.count)
+        for event in events {
+            // Each event is written back as the object it was parsed from: the
+            // same fields and values, so its event_id and timestamp are the ones
+            // stamped when it was queued.
+            guard let blob = try? JSONSerialization.data(withJSONObject: event) else { return nil }
+            blobs.append(blob)
+        }
+        self.entry = entry
+        self.campaignId = campaignId
+        self.deviceId = deviceId
+        self.events = blobs
+        self.eventBytes = blobs.reduce(0) { $0 + $1.count }
+        self.head = head
+    }
+
+    private static func head(_ campaignId: String, _ deviceId: String) -> Data? {
+        guard let campaign = jsonString(campaignId), let device = jsonString(deviceId) else { return nil }
+        var head = Data("{\"campaign_id\":".utf8)
+        head.append(campaign)
+        head.append(Data(",\"device_id\":".utf8))
+        head.append(device)
+        head.append(Data(",\"events\":[".utf8))
+        return head
+    }
+
+    /// A string as a JSON string literal, escaped by JSONSerialization.
+    private static func jsonString(_ value: String) -> Data? {
+        // Wrapped in an array (a top-level string is not valid input), then
+        // the brackets dropped.
+        guard let array = try? JSONSerialization.data(withJSONObject: [value]), array.count >= 2 else {
+            return nil
+        }
+        return array.subdata(in: 1..<(array.count - 1))
+    }
+}
+
+/// The /mobile/event request a flush is filling: the body is
+/// {"campaign_id":..,"device_id":..,"events":[e1,e2,...]}, and its size is
+/// counted as entries join, so it is known before a cap would be passed.
+private struct EventBatch {
+    let endpoint: String
+    let campaignId: String
+    let deviceId: String
+    let head: Data
+    private(set) var parts: [EventParts]
+    private(set) var eventCount: Int
+    /// Bytes of the merged body as it stands.
+    private(set) var bodyBytes: Int
+
+    init(_ first: EventParts) {
+        endpoint = first.entry.endpoint
+        campaignId = first.campaignId
+        deviceId = first.deviceId
+        head = first.head
+        parts = [first]
+        eventCount = first.events.count
+        // The envelope, the events, and a comma between each two of them.
+        bodyBytes = first.head.count + EventBatch.tail.count
+            + first.eventBytes + (first.events.count - 1)
+    }
+
+    func accepts(_ next: EventParts, maxEvents: Int, maxBytes: Int) -> Bool {
+        next.entry.endpoint == endpoint
+            && next.campaignId == campaignId
+            && next.deviceId == deviceId
+            && eventCount + next.events.count <= maxEvents
+            // One comma before each of the new events.
+            && bodyBytes + next.eventBytes + next.events.count <= maxBytes
+    }
+
+    mutating func add(_ next: EventParts) {
+        parts.append(next)
+        eventCount += next.events.count
+        bodyBytes += next.eventBytes + next.events.count
+    }
+
+    func delivery() -> EventQueue.Delivery {
+        let ids = parts.map { $0.entry.id }
+        // A lone entry goes exactly as it was queued.
+        if parts.count == 1 {
+            return EventQueue.Delivery(endpoint: endpoint, body: parts[0].entry.payloadJson, entryIds: ids)
+        }
+        var body = head
+        body.reserveCapacity(bodyBytes)
+        var first = true
+        for part in parts {
+            for event in part.events {
+                if !first { body.append(UInt8(ascii: ",")) }
+                body.append(event)
+                first = false
+            }
+        }
+        body.append(EventBatch.tail)
+        return EventQueue.Delivery(endpoint: endpoint, body: body, entryIds: ids)
+    }
+
+    private static let tail = Data("]}".utf8)
 }

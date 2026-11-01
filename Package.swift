@@ -1,9 +1,17 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.16.0
+// SDK version: 4.16.1
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.16.1: tracked events reach the server in fewer requests. A flush (about
+//   every 5 seconds, or at 10 queued) sends the queued page(_:), track(_:)
+//   and session events of one app and device as ONE request to
+//   /api/v1/mobile/event, up to 100 events and 60,000 bytes a request, instead
+//   of one request per event. No new delay and no new timer. Each event keeps
+//   its own event_id and timestamp, so a resend after a lost answer is still
+//   counted once. Purchases and ad ids still go one request each, in order
+//   with the events, and Live Chat is unchanged. No API changes.
 // 4.16.0: while the app shows the chat bubble and is in front,
 //   the app's own live channel (/api/live-chat/app-stream) brings the owner's
 //   on/off switch and the team's Online switches at once. Switched off, the
