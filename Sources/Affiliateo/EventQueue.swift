@@ -20,9 +20,14 @@ import Network
 ///     still goes alone, in queue order
 ///   - NWPathMonitor pauses flushing while offline; an immediate flush
 ///     fires the moment connectivity returns (no waiting for the timer)
-///   - Failed events bump a per-event retry counter; dropped after MAX_RETRIES.
-///     Entries that shared a request share its outcome: all leave on a 2xx,
-///     all stay (each counting a try) otherwise
+///   - Retries (4.16.2, see SendRetry.swift): an answer that may change
+///     (no answer, 404, 408, 429, 5xx) keeps the request's events, and the
+///     queue waits 5 s, doubling up to 5 minutes, before its next try, at
+///     least as long as a 429 or 503 asks (Retry-After). The rest of that
+///     flush waits too. A refusal (another 4xx) drops them, with one debug
+///     line. Only the size cap drops a waiting event; it used to be dropped
+///     after its third failed try, on the fixed 5 s timer. Entries that shared
+///     a request share its outcome
 ///
 /// Why UserDefaults instead of FileManager / Keychain:
 ///   UserDefaults is the platform-idiomatic key-value store for small
@@ -31,10 +36,11 @@ import Network
 ///   FileManager would add async I/O overhead for no real benefit.
 ///
 /// Caps (matched to web + RN for cross-platform consistency):
-///   - maxRetries = 3
 ///   - maxQueueSize = 100      hard cap, FIFO drop on overflow
 ///   - flushIntervalSecs = 5   periodic auto-flush cadence
 ///   - sizeFlushThreshold = 10 trigger flush when queue grows past
+///   - requestTimeoutSecs = 20 a request with no answer for this long is
+///                             given up (and its events kept)
 final class EventQueue {
     // Wire format. Codable so JSONEncoder/JSONDecoder roundtrip works
     // for persistence. `payload` stored as Data (JSON-encoded) so we
@@ -45,16 +51,24 @@ final class EventQueue {
         let id: String
         let endpoint: String
         let payloadJson: Data
+        /// Kept answers so far. A record only since 4.16.2: nothing is
+        /// dropped for it.
         var retries: Int
     }
 
-    /// Sends one request body to one endpoint and answers whether it landed
-    /// (a 2xx). The SDK uses `post(endpoint:body:)`; tests pass their own.
-    typealias Sender = (_ endpoint: String, _ body: Data) async -> Bool
+    /// What the server answered one request (4.16.2): its HTTP status, nil
+    /// when no answer came (offline, a time out), and its Retry-After header.
+    struct Answer {
+        let status: Int?
+        var retryAfter: String? = nil
+    }
+
+    /// Sends one request body to one endpoint and answers what the server
+    /// said. The SDK uses `post(endpoint:body:)`; tests pass their own.
+    typealias Sender = (_ endpoint: String, _ body: Data) async -> Answer
 
     /// One request of a flush (4.16.1): the body it sends and the queued
-    /// entries it carries. They leave the queue together on a 2xx, and stay
-    /// together otherwise.
+    /// entries it carries. They leave the queue together or stay together.
     struct Delivery {
         let endpoint: String
         let body: Data
@@ -67,8 +81,11 @@ final class EventQueue {
     static let maxEventsPerRequest = 100
     static let maxBodyBytes = 60_000
 
+    /// How long a request may go without an answer (4.16.2). It also keeps
+    /// a send as the app goes to the background inside the time iOS gives.
+    static let requestTimeoutSecs: TimeInterval = 20
+
     private let storageKey = "affiliateo_event_queue"
-    private let maxRetries = 3
     private let sizeFlushThreshold = 10
     // Configurable via init(flushIntervalSecs:maxQueueSize:). Defaults
     // match the rest of the SDK family (web, RN, Kotlin, Flutter).
@@ -81,7 +98,12 @@ final class EventQueue {
     private let userDefaults: UserDefaults
     private let autoFlush: Bool
     private let send: Sender
+    private let now: () -> Date
+    private let jitter: () -> Double
+    private let log: ((String) -> Void)?
     private var queue: [QueuedEvent] = []
+    // When the next try may go after a kept answer (4.16.2). On serialQueue.
+    private var retry = SendRetry()
     private var flushTimer: Timer?
     private var isFlushing = false
     private var shuttingDown = false
@@ -100,12 +122,17 @@ final class EventQueue {
     private let serialQueue = DispatchQueue(label: "com.affiliateo.queue")
 
     /// `autoFlush: false` (tests only) starts no timer and no network
-    /// monitor and never flushes on its own: only `flush()` sends.
+    /// monitor and never flushes on its own: only `flush()` sends. `now` and
+    /// `jitter` (0 to 1) set the clock and the spread of the retry waits, for
+    /// tests; `log` gets the debug lines.
     init(
         userDefaults: UserDefaults = .standard,
         flushIntervalSecs: TimeInterval = 5,
         maxQueueSize: Int = 100,
         autoFlush: Bool = true,
+        now: @escaping () -> Date = { Date() },
+        jitter: @escaping () -> Double = { Double.random(in: 0...1) },
+        log: ((String) -> Void)? = nil,
         send: @escaping Sender = EventQueue.post(endpoint:body:)
     ) {
         self.userDefaults = userDefaults
@@ -113,6 +140,9 @@ final class EventQueue {
         self.flushIntervalSecs = max(1, min(60, flushIntervalSecs))
         self.maxQueueSize = max(10, min(1000, maxQueueSize))
         self.autoFlush = autoFlush
+        self.now = now
+        self.jitter = jitter
+        self.log = log
         self.send = send
         loadFromDisk()
         guard autoFlush else { return }
@@ -158,9 +188,10 @@ final class EventQueue {
         }
     }
 
-    /// Try to deliver every queued event. Each event gets one attempt
-    /// per flush; failures bump retries and stay queued. Events that
-    /// hit maxRetries are dropped. Skipped entirely when offline.
+    /// Try to deliver every queued event, in queue order. A request whose
+    /// answer may change keeps its events and ends the flush (4.16.2): the
+    /// rest waits with them. Skipped entirely when offline, and until the
+    /// wait after such an answer is over (see SendRetry.swift).
     /// Since 4.16.1 the events of one flush share requests (see `plan(_:)`),
     /// and the call returns once the queue is saved.
     func flush() async {
@@ -169,7 +200,8 @@ final class EventQueue {
         let snapshot: [QueuedEvent] = await withCheckedContinuation { cont in
             serialQueue.async { [weak self] in
                 guard let self = self else { cont.resume(returning: []); return }
-                if self.isFlushing || self.queue.isEmpty || !self.isConnected {
+                if self.isFlushing || self.queue.isEmpty || !self.isConnected
+                    || !self.retry.canSend(at: self.now()) {
                     cont.resume(returning: [])
                     return
                 }
@@ -183,10 +215,11 @@ final class EventQueue {
         // per app and device, instead of one request each (4.16.1). Still
         // sequential, so the server sees everything in queue order and the
         // retry rules stay simple. Head-of-line blocking is fine because all
-        // requests go to the same server and the snapshot is bounded.
+        // requests go to the same server and the snapshot is bounded: when
+        // one is kept, the server is busy or out of reach for the rest too.
         for delivery in EventQueue.plan(snapshot) {
-            let ok = await send(delivery.endpoint, delivery.body)
-            await applyResult(entryIds: delivery.entryIds, ok: ok)
+            let answer = await send(delivery.endpoint, delivery.body)
+            if await settle(delivery, answer: answer) == .kept { break }
         }
 
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
@@ -306,8 +339,11 @@ final class EventQueue {
             let wasOffline = !self.isConnected
             self.isConnected = path.status == .satisfied
             if wasOffline && self.isConnected {
-                // Came back online — catch-up flush right now instead
-                // of waiting up to flushIntervalSecs for the timer.
+                // Came back online: a wait for the network is over (one the
+                // server asked for still holds), so catch-up flush right now
+                // instead of waiting up to flushIntervalSecs for the timer.
+                // Queued on serialQueue ahead of the flush's own snapshot.
+                self.serialQueue.async { self.retry.networkBack() }
                 self.scheduleFlush()
             }
         }
@@ -316,45 +352,51 @@ final class EventQueue {
         #endif
     }
 
-    /// The SDK's Sender: one POST with a JSON body.
-    static func post(endpoint: String, body: Data) async -> Bool {
-        guard let url = URL(string: endpoint) else { return false }
+    /// The SDK's Sender: one POST with a JSON body, given up after
+    /// `requestTimeoutSecs` without an answer (4.16.2).
+    static func post(endpoint: String, body: Data) async -> Answer {
+        guard let url = URL(string: endpoint) else { return Answer(status: nil) }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = body
+        req.timeoutInterval = requestTimeoutSecs
         do {
             let (_, response) = try await URLSession.shared.data(for: req)
-            if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
-                return true
-            }
-            return false
+            guard let http = response as? HTTPURLResponse else { return Answer(status: nil) }
+            return Answer(status: http.statusCode, retryAfter: http.value(forHTTPHeaderField: "Retry-After"))
         } catch {
-            return false
+            return Answer(status: nil)
         }
     }
 
-    /// One request's outcome for every entry it carried: all removed on a
-    /// 2xx; otherwise each stays and counts a try, the way a lone entry
-    /// always did, and one that reaches maxRetries is dropped.
-    private func applyResult(entryIds: [String], ok: Bool) async {
-        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+    /// One request's answer for every entry it carried (4.16.2): all removed
+    /// when sent or refused (a refusal says so in the debug log); all kept
+    /// otherwise, each counting a try, and the queue waits before its next.
+    private func settle(_ delivery: Delivery, answer: Answer) async -> SendRetry.Outcome {
+        await withCheckedContinuation { (cont: CheckedContinuation<SendRetry.Outcome, Never>) in
             serialQueue.async { [weak self] in
-                guard let self = self else { cont.resume(); return }
-                if ok {
-                    let sent = Set(entryIds)
-                    self.queue.removeAll { sent.contains($0.id) }
-                } else {
-                    for id in entryIds {
-                        // Gone already when clear() or the size cap ran meanwhile.
-                        guard let idx = self.queue.firstIndex(where: { $0.id == id }) else { continue }
+                guard let self = self else { cont.resume(returning: .kept); return }
+                let outcome = self.retry.answered(
+                    status: answer.status,
+                    retryAfter: answer.retryAfter,
+                    at: self.now(),
+                    jitter: self.jitter()
+                )
+                let ids = Set(delivery.entryIds)
+                switch outcome {
+                case .sent, .refused:
+                    self.queue.removeAll { ids.contains($0.id) }
+                case .kept:
+                    // Gone already when clear() or the size cap ran meanwhile.
+                    for idx in self.queue.indices where ids.contains(self.queue[idx].id) {
                         self.queue[idx].retries += 1
-                        if self.queue[idx].retries >= self.maxRetries {
-                            self.queue.remove(at: idx)
-                        }
                     }
                 }
-                cont.resume()
+                if outcome == .refused, let status = answer.status {
+                    self.log?("dropped \(delivery.entryIds.count) queued event(s): the server refused them (HTTP \(status), \(delivery.endpoint))")
+                }
+                cont.resume(returning: outcome)
             }
         }
     }

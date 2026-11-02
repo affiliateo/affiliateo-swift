@@ -255,8 +255,9 @@ final class EventQueueBatchTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeQueue(_ server: FakeServer) -> EventQueue {
-        EventQueue(userDefaults: defaults, autoFlush: false, send: server.send)
+    /// No jitter, so a kept answer's wait is exactly 5 s, 10 s, 20 s...
+    private func makeQueue(_ server: FakeServer, clock: TestClock = TestClock()) -> EventQueue {
+        EventQueue(userDefaults: defaults, autoFlush: false, now: { clock.now }, jitter: { 0 }, send: server.send)
     }
 
     private func pageEvent(_ queue: EventQueue, _ screen: String) {
@@ -290,7 +291,8 @@ final class EventQueueBatchTests: XCTestCase {
     func testFailureKeepsEveryMergedEntry() async {
         let server = FakeServer()
         server.answer = { _ in false }
-        let queue = makeQueue(server)
+        let clock = TestClock()
+        let queue = makeQueue(server, clock: clock)
         for screen in ["A", "B", "C", "D"] { pageEvent(queue, screen) }
         let ids = queue.pending.map(\.id)
 
@@ -302,22 +304,27 @@ final class EventQueueBatchTests: XCTestCase {
         let saved = try! JSONDecoder().decode([EventQueue.QueuedEvent].self, from: defaults.data(forKey: "affiliateo_event_queue")!)
         XCTAssertEqual(saved.map(\.retries), [1, 1, 1, 1])
 
-        // The retry resends the same events (same event_id), so the server's
-        // dedup makes a lost response safe.
+        // The retry, once the 5 s wait is over (4.16.2), resends the same
+        // events (same event_id), so the server's dedup makes a lost
+        // response safe.
+        clock.advance(by: 5)
         await queue.flush()
         XCTAssertEqual(server.requests.count, 2)
         XCTAssertEqual(events(server.requests[1].body), events(server.requests[0].body))
         XCTAssertEqual(queue.pending.map(\.retries), [2, 2, 2, 2])
 
-        // The third failed try drops them all, as it dropped one before.
+        // A third failed try no longer drops them (4.16.2): they wait on.
+        clock.advance(by: 10)
         await queue.flush()
         XCTAssertEqual(server.requests.count, 3)
-        XCTAssertEqual(queue.size, 0)
+        XCTAssertEqual(queue.pending.map(\.id), ids)
+        XCTAssertEqual(queue.pending.map(\.retries), [3, 3, 3, 3])
     }
 
     func testEachEntryKeepsItsOwnRetryCount() async {
         // Two event entries already queued (say from the last launch), one of
-        // them on its last try.
+        // them with two failed tries behind it. Its third no longer drops it
+        // (4.16.2).
         let old = eventEntry(screen: "Old", retries: 2)
         let fresh = eventEntry(screen: "Fresh", retries: 0)
         defaults.set(try! JSONEncoder().encode([old, fresh]), forKey: "affiliateo_event_queue")
@@ -329,24 +336,35 @@ final class EventQueueBatchTests: XCTestCase {
 
         XCTAssertEqual(server.requests.count, 1)
         XCTAssertEqual(events(server.requests[0].body).count, 2)
-        XCTAssertEqual(queue.pending.map(\.id), [fresh.id])
-        XCTAssertEqual(queue.pending.map(\.retries), [1])
+        XCTAssertEqual(queue.pending.map(\.id), [old.id, fresh.id])
+        XCTAssertEqual(queue.pending.map(\.retries), [3, 1])
     }
 
-    func testOneFailedRequestLeavesTheOthersSent() async {
+    func testKeptRequestHoldsBackTheRestInOrder() async {
         let server = FakeServer()
         server.answer = { endpoint in !endpoint.hasSuffix("/purchase") }
-        let queue = makeQueue(server)
+        let clock = TestClock()
+        let queue = makeQueue(server, clock: clock)
+        let purchaseUrl = "\(api)/api/v1/mobile/purchase"
         pageEvent(queue, "A")
         pageEvent(queue, "B")
-        queue.enqueue(endpoint: "\(api)/api/v1/mobile/purchase", payload: ["campaign_id": app, "device_id": device, "transaction_id": "tx"])
+        queue.enqueue(endpoint: purchaseUrl, payload: ["campaign_id": app, "device_id": device, "transaction_id": "tx"])
         pageEvent(queue, "C")
 
         await queue.flush()
 
-        XCTAssertEqual(server.requests.count, 3)
-        XCTAssertEqual(queue.pending.map(\.endpoint), ["\(api)/api/v1/mobile/purchase"])
-        XCTAssertEqual(queue.pending.map(\.retries), [1])
+        // A and B went; the purchase is kept, and C waits behind it (4.16.2).
+        XCTAssertEqual(server.requests.map(\.endpoint), [eventUrl, purchaseUrl])
+        XCTAssertEqual(queue.pending.map(\.endpoint), [purchaseUrl, eventUrl])
+        XCTAssertEqual(queue.pending.map(\.retries), [1, 0])
+
+        // The next try, after the wait, sends both, purchase first.
+        server.answer = { _ in true }
+        clock.advance(by: 5)
+        await queue.flush()
+        XCTAssertEqual(server.requests.map(\.endpoint), [eventUrl, purchaseUrl, purchaseUrl, eventUrl])
+        XCTAssertEqual(events(server.requests[3].body).map { $0["screen"] as? String }, ["C"])
+        XCTAssertEqual(queue.size, 0)
     }
 
     func testSuccessRemovesEveryMergedEntryAndSaves() async {
@@ -364,7 +382,8 @@ final class EventQueueBatchTests: XCTestCase {
     }
 }
 
-/// Records every request a flush makes and answers with `answer`.
+/// Records every request a flush makes and answers 200, or a 500 (kept,
+/// see SendRetry.swift) where `answer` says no.
 private final class FakeServer {
     struct Request {
         let endpoint: String
@@ -380,11 +399,11 @@ private final class FakeServer {
         return recorded
     }
 
-    func send(_ endpoint: String, _ body: Data) async -> Bool {
+    func send(_ endpoint: String, _ body: Data) async -> EventQueue.Answer {
         lock.lock()
         recorded.append(Request(endpoint: endpoint, body: body))
         let answer = self.answer
         lock.unlock()
-        return answer(endpoint)
+        return EventQueue.Answer(status: answer(endpoint) ? 200 : 500)
     }
 }

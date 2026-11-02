@@ -1,9 +1,19 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.16.1
+// SDK version: 4.16.2
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.16.2: tracked events wait instead of being lost. When the server is busy
+//   or out of reach (no answer, a time out, 404, 408, 429 or 5xx) the queue
+//   keeps the events and tries again after 5 seconds, then 10, 20 and so on
+//   up to about 5 minutes, never sooner than the server's Retry-After asks.
+//   They used to be dropped after three tries 5 seconds apart. Only a request
+//   the server refuses (another 4xx) is dropped, with one line in the debug
+//   log, and only the queue's size cap drops a waiting event. The events
+//   still waiting are sent as the app goes to the background, inside a
+//   background task, and a request with no answer is given up after 20
+//   seconds. No API changes.
 // 4.16.1: tracked events reach the server in fewer requests. A flush (about
 //   every 5 seconds, or at 10 queued) sends the queued page(_:), track(_:)
 //   and session events of one app and device as ONE request to

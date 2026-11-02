@@ -182,10 +182,12 @@ public final class AffiliateoManager: ObservableObject {
         self.client = AffiliateoClient(apiUrl: apiUrl)
         self.deviceId = getStableDeviceId()
         // Queue tuning. Both clamped inside EventQueue.init so a host
-        // passing 0 or 999999 won't break us.
+        // passing 0 or 999999 won't break us. Its debug lines (a refused
+        // request, 4.16.2) print like log(_:) does.
         self.queue = EventQueue(
             flushIntervalSecs: flushIntervalSecs,
-            maxQueueSize: maxQueueSize
+            maxQueueSize: maxQueueSize,
+            log: debug ? { print("[Affiliateo] \($0)") } : nil
         )
         self.isOptedOut = UserDefaults.standard.string(forKey: AffiliateoManager.optOutKey) == "true"
         self.debug = debug
@@ -274,6 +276,14 @@ public final class AffiliateoManager: ObservableObject {
             self,
             selector: #selector(appDidBecomeActive),
             name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        // Send what is waiting as the app leaves the screen (4.16.2), not at
+        // the next launch.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
             object: nil
         )
         #endif
@@ -410,10 +420,11 @@ public final class AffiliateoManager: ObservableObject {
     }
 
     /// Force-drain the event queue immediately. Useful before a known
-    /// unrecoverable transition (entering an in-app purchase flow,
-    /// app about to be backgrounded for a long time). Best-effort: if
-    /// offline the flush noops and events stay queued for the next
-    /// retry cycle.
+    /// unrecoverable transition (entering an in-app purchase flow).
+    /// Best-effort: if offline, or while the queue waits after the server
+    /// was busy or out of reach (4.16.2), the flush noops and events stay
+    /// queued for the next try. The SDK flushes on its own as the app goes
+    /// to the background (4.16.2).
     public func flush() async {
         log("flush requested")
         await queue.flush()
@@ -948,6 +959,27 @@ public final class AffiliateoManager: ObservableObject {
         )
     }
 
+    #if canImport(UIKit) && !os(watchOS)
+    /// The app left the screen (4.16.2): send what is waiting now, inside a
+    /// background task so iOS keeps the app running until the requests finish
+    /// (a request gives up after 20 s without an answer), instead of leaving
+    /// the events until the next launch. Whatever does not go stays queued on
+    /// disk.
+    @objc private func appDidEnterBackground() {
+        if isOptedOut { return }
+        let app = UIApplication.shared
+        let task = BackgroundSend()
+        task.id = app.beginBackgroundTask(withName: "Affiliateo events") {
+            // Out of time: iOS is about to suspend the app.
+            task.end(app)
+        }
+        Task {
+            await self.queue.flush()
+            await MainActor.run { task.end(app) }
+        }
+    }
+    #endif
+
     // MARK: Live Chat (4.14.0)
 
     /// What Live Chat (Chat.swift) needs to know about this install. The ids
@@ -976,6 +1008,21 @@ public final class AffiliateoManager: ObservableObject {
         queue.shutdown()
     }
 }
+
+#if canImport(UIKit) && !os(watchOS)
+/// The background task around the send as the app leaves the screen
+/// (4.16.2), ended once: when the send is done or iOS runs out of time,
+/// whichever comes first. Main thread only.
+private final class BackgroundSend {
+    var id: UIBackgroundTaskIdentifier = .invalid
+
+    func end(_ app: UIApplication) {
+        guard id != .invalid else { return }
+        app.endBackgroundTask(id)
+        id = .invalid
+    }
+}
+#endif
 
 /// Resumes a continuation once, whichever caller comes first.
 private final class ResumeOnce: @unchecked Sendable {
