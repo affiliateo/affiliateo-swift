@@ -1,9 +1,14 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.16.2
+// SDK version: 4.16.3
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.16.3: setChatBubblePadding(bottom:) takes any height (400 points at
+//   most before), so an app can lift the bubble up beside its content, for
+//   example between the steps of a paywall. The bubble still never goes
+//   above the top of the safe area, and dragging it still stops at the
+//   padding. No API changes.
 // 4.16.2: tracked events wait instead of being lost. When the server is busy
 //   or out of reach (no answer, a time out, 404, 408, 429 or 5xx) the queue
 //   keeps the events and tries again after 5 seconds, then 10, 20 and so on

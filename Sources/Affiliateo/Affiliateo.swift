@@ -1156,7 +1156,9 @@ public enum Affiliateo {
 
     /// Keep the chat bubble above your app's own bottom bar (4.15.0): a tab
     /// bar or a floating button. The bubble starts this many points above the
-    /// bottom of the safe area and is never dragged below them.
+    /// bottom of the safe area and is never dragged below them. Any height
+    /// works (4.16.3; it was 400 at most): a tall one lifts the bubble up
+    /// beside your content, and it never leaves the top of the screen.
     ///
     /// ```swift
     /// Affiliateo.setChatBubblePadding(bottom: 72)

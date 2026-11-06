@@ -1,0 +1,11 @@
+Target dependency graph (4 targets)
+Target 'AllIncludingTests' in project 'Aggregate'
+➜ Explicit dependency on target 'AffiliateoTests-product' in project 'Affiliateo'
+➜ Dependency on target 'AffiliateoTests-product' in project 'Affiliateo' via transitive dependency through 'AffiliateoTests-test-runner'
+➜ Explicit dependency on target 'Affiliateo-product' in project 'Affiliateo'
+➜ Explicit dependency on target 'Affiliateo' in project 'Affiliateo'
+Target 'Affiliateo-product' in project 'Affiliateo'
+➜ Explicit dependency on target 'Affiliateo' in project 'Affiliateo'
+Target 'AffiliateoTests-product' in project 'Affiliateo'
+➜ Explicit dependency on target 'Affiliateo' in project 'Affiliateo'
+Target 'Affiliateo' in project 'Affiliateo' (no dependencies)

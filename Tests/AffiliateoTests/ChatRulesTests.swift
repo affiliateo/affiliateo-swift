@@ -253,6 +253,19 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertEqual(tl.y, 956 - 48 - 20 - 59)
     }
 
+    func testClampedBottom() {
+        let insets = (top: 59.0, bottom: 34.0)
+        // The corner (20 above the safe area) stays where it is.
+        XCTAssertEqual(ChatRules.clampedBottom(54, size: 48, height: 956, insets: insets, padding: 0), 54)
+        // A padding past the old 400 cap lifts it all the way (4.16.3).
+        XCTAssertEqual(ChatRules.clampedBottom(20 + 34 + 470, size: 48, height: 956, insets: insets, padding: 470), 524)
+        // Never dragged below the padding.
+        XCTAssertEqual(ChatRules.clampedBottom(10, size: 48, height: 956, insets: insets, padding: 300), 34 + 300 + 8)
+        // Never above the top of the safe area, even with a padding taller than the window.
+        XCTAssertEqual(ChatRules.clampedBottom(5000, size: 48, height: 956, insets: insets, padding: 2000), 956 - 48 - 59 - 8)
+        XCTAssertEqual(ChatRules.clampedBottom(0, size: 48, height: 956, insets: insets, padding: 2000), 956 - 48 - 59 - 8)
+    }
+
     func testColors() {
         let colored = ChatRules.parseConfig(Data(##"{"enabled":true,"bubble":{"color":"#7c3aed","icon_color":"#fef3c7"}}"##.utf8))
         XCTAssertEqual(colored.bubble.color, "#7c3aed")

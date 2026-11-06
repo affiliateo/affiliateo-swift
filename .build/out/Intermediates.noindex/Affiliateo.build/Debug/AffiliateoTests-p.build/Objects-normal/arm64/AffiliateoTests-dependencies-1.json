@@ -1,0 +1,807 @@
+[
+  {
+    "isFramework" : true,
+    "moduleName" : "Accessibility",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Accessibility.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Affiliateo",
+    "modulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/Products\/Debug\/Affiliateo.swiftmodule\/arm64-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "AppKit",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/AppKit.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "BackgroundAssets",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/BackgroundAssets.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "ColorSync",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/ColorSync.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "Combine",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Combine.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "CoreAudio",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CoreAudio.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "CoreData",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CoreData.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "CoreFoundation",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CoreFoundation.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "CoreGraphics",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CoreGraphics.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "CoreImage",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CoreImage.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "CoreMedia",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CoreMedia.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "CoreText",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CoreText.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "CoreTransferable",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CoreTransferable.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "CoreVideo",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CoreVideo.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "CryptoKit",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/CryptoKit.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Darwin",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Darwin.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "DataDetection",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/DataDetection.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "DeveloperToolsSupport",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/DeveloperToolsSupport.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Dispatch",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Dispatch.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Distributed",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Distributed.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "ExtensionFoundation",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/ExtensionFoundation.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "Foundation",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Foundation.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "IOKit",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/IOKit.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "ImageIO",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/ImageIO.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "LightweightCodeRequirements",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/LightweightCodeRequirements.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "LocalAuthentication",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/LocalAuthentication.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Metal",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Metal.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "Network",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Network.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "OSLog",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/OSLog.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "ObjectiveC",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/ObjectiveC.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Observation",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Observation.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "QuartzCore",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/QuartzCore.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Spatial",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Spatial.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "StoreKit",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/StoreKit.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Swift",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Swift.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "SwiftOnoneSupport",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/SwiftOnoneSupport.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "SwiftUI",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/SwiftUI.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "SwiftUICore",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/SwiftUICore.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "Symbols",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Symbols.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Synchronization",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/Synchronization.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "System",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/System.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "Testing",
+    "modulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/Testing-1H9J8VKVTWZF5.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "UniformTypeIdentifiers",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/UniformTypeIdentifiers.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "XCTest",
+    "modulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/XCTest-1JM14O6VZEUFR.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "XCUIAutomation",
+    "modulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/XCUIAutomation-1QDRHZF0PIU7N.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "XPC",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/XPC.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_Builtin_float",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/_Builtin_float.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_Concurrency",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/_Concurrency.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation1",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/_DarwinFoundation1.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation2",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/_DarwinFoundation2.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation3",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/_DarwinFoundation3.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "_StoreKit_SwiftUI",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/_StoreKit_SwiftUI.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_StringProcessing",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/_StringProcessing.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "os",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/os.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "simd",
+    "modulePath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.2\/simd.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Accessibility.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/Accessibility-2EDMWGUPCBVW514QJLN9IMY2C.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Accessibility"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/AppKit.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/AppKit-17JHZ1GVZHD3U18LU1ZMPON3C.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "AppKit"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/ApplicationServices.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/ApplicationServices-AC926SYQSMFOT4AF71SB73EXL.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ApplicationServices"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/BackgroundAssets.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/BackgroundAssets-6UUNYQ4DKJFM2PMVIR6ETZW1T.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "BackgroundAssets"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CFNetwork.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CFNetwork-AGIVJEVXNAWAZR88KQBDBB41E.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CFNetwork"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/cups.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CUPS-40RSFR41ZSXGI98UXVIOAZJY9.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CUPS"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/ColorSync.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/ColorSync-41GGBIOIEKWONUP3E1F1IKDHZ.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ColorSync"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreAudio.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreAudio-35QPDGY2FHF40G0QVKY50342E.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreAudio"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreAudioTypes.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreAudioTypes-GV3G4YQ401GZF1LE49SVR41P.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreAudioTypes"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreData.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreData-DPP0ZWQYGBE28C9QBT2KH99NE.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreData"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreFoundation.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreFoundation-9Z3QJICJYAODWXXAIMRYQGMRE.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreFoundation"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreGraphics.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreGraphics-CW71S9A4A62HF4MOQ6AGUAYT4.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreGraphics"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreImage.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreImage-76XT6L57YKVKZITA2C87TADVU.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreImage"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreMedia.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreMedia-BFMNGIO3VJCJFN7E7KO13AQOF.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreMedia"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreServices.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreServices-4XWW10WMGW7N1I2AS73BIY5N8.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreServices"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreText.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreText-AA1CSKVSX9TP8B55QZI1ZQ6BM.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreText"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreTransferable.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreTransferable-I74Q6WL3TPCYCQ9E5SH5QZLR.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreTransferable"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreVideo.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/CoreVideo-3P0JTPEN4YYQC64VCINAM7KT7.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreVideo"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/Darwin.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/Darwin-1H5EO4G78VQ5QMCZXFE0VBAVW.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Darwin"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/DataDetection.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/DataDetection-2W1IURM1A0NIULH1ZG66HEBST.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "DataDetection"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/DeveloperToolsSupport.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/DeveloperToolsSupport-92M4P6VBYRZPXXRXUOHNHMH2M.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "DeveloperToolsSupport"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/DiskArbitration.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/DiskArbitration-39AX8INGJKH8ZI36A5NFCJTBZ.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "DiskArbitration"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/dispatch.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/Dispatch-BOR9MJMMS9HX1OQNL40B2QS1H.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Dispatch"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/ExtensionFoundation.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/ExtensionFoundation-E703SDA5PF2UTCKYNY18O91WB.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ExtensionFoundation"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Foundation.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/Foundation-59CQI8RZ36H377YUYJVI2FO2Z.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Foundation"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/IOKit.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/IOKit-1PZZGUMPMC3KY1PQR3DI85SWK.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "IOKit"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/IOSurface.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/IOSurface-C94JR9RQHLIFLIPHFLQH8K3HE.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "IOSurface"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/ImageIO.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/ImageIO-7Q81LH4MSOSJBVWO18SZRT5HN.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ImageIO"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/LocalAuthentication.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/LocalAuthentication-5QEF7X75A4HOTBI762M26CXE2.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "LocalAuthentication"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinBasic.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/MachO-4P4RJKD95TTVBR6V4T5AT1QNK.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "MachO"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Metal.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/Metal-8SMKYFL8Z8IL3ABNO5ZRA4HV7.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Metal"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Network.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/Network-50BYTXIE71V5B49QJ83KY4RMR.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Network"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/OSLog.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/OSLog-1PUUECHMQMT0YNZYIFWEE2O9V.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "OSLog"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/ObjectiveC.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/ObjectiveC-614MWPDY3ULAPZZRF0JCVIBGG.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ObjectiveC"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/OpenGL.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/OpenGL-9RTJ11CWISVNA3XHBA7BNJ2D2.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "OpenGL"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/QuartzCore.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/QuartzCore-3IDGK9ZVPNV6UFF5W3GG4YZ38.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "QuartzCore"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Security.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/Security-Y3TEZMODJL3XTB5DW39R2423.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Security"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/Spatial\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/Spatial-9QS7DG0BW0BRJPWWKRRQYT4A1.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Spatial"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/StoreKit.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/StoreKit-6RAR8KT85KXXAAZPF4913S230.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "StoreKit"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/lib\/swift\/shims\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftShims-51BIJL4BWLH7V0URGMQKNVIHP.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "SwiftShims"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/SwiftUI.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftUI-ESJM40I1FVXIDO2DT9VRA2A4L.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "SwiftUI"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/SwiftUICore.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/SwiftUICore-BU7RU4E4PJ9XJX62QQ6LN3S0J.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "SwiftUICore"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Symbols.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/Symbols-5W4527SU8F22PZVG4T1J8KK0T.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Symbols"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/UniformTypeIdentifiers.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/UniformTypeIdentifiers-3F8SK0IP21RZTMPEE2HR0MV13.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "UniformTypeIdentifiers"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/Library\/Frameworks\/XCTest.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/XCTest-C4RV2CYDSAD1B8CTLUM5GGDQL.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "XCTest"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/Library\/Frameworks\/XCUIAutomation.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/XCUIAutomation-BJWVUYNK1P0C916GN9OQJMIBR.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "XCUIAutomation"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/xpc.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/XPC-AMOLUWY7IUM05XBJ91MV5I2A3.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "XPC"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation1.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_AvailabilityInternal-BR535CJ0UBXC6CU22S2HJZCKS.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_AvailabilityInternal"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_float-214SLKJ2HWAT0AXKDR941R3DJ.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_float"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_intrinsics-C6IOOZI8WJBQ43ILG7EROKS15.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_intrinsics"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_inttypes-3YD9ZNAG09O34H2SAKBJ8GM3U.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_inttypes"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_limits-4SVIRTVB8SNJ9F9NB6MCW84ZS.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_limits"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdarg-3ETCHDWRDOSUU0ELNAPONRZI9.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stdarg"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdatomic-4V8FIHR3KJO2FY4VEHDSIGWS6.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stdatomic"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdbool-C3YTWFE1F16QQNW3TZEH8R9Y.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stdbool"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stddef-CUX8ROEHTV1GSZ5L90WLSJ88X.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stddef"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdint-1DK38AKMWIQTMIT1Z86RH0F82.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stdint"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_Builtin_tgmath-6Z2IK17L7I05IL28BSB6ZAN0T.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_tgmath"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation1.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation1-2OAP7ENQ5SFD9XQT8U38HK20Z.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation1"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation2.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation2-6LXCYQC2YB7XIEHDWZY9Y3IW3.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation2"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation3.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation3-2VTGQOSX0JYFDOACT7JBNOY9H.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation3"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/_StoreKit_SwiftUI.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_StoreKit_SwiftUI-AFBF74H4DUSXS2KHSINVIAHJP.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_StoreKit_SwiftUI"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/lib\/swift\/shims\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/_SwiftConcurrencyShims-B5YCOA4CNMV6PZ185KZIT62P6.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_SwiftConcurrencyShims"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/dnssd.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/dnssd-ENWOEWRR2ZB756NGFV9XR15YB.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "dnssd"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/launch.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/launch-BXKUAT8JSW4Q1YCBMNI350M6S.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "launch"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/libDER\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/libDER-7TX60WG2L26Q9MBZBR3ZXPCM4.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "libDER"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/libkern.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/libkern-1L2P34I6V57BTFMLULY1FVPMH.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "libkern"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/os-2DMGHCS4U1RCA3FC4V544M07Z.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "os"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/os_object-D13RGUC4WREU9LN14OYAQHPPI.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "os_object"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/os_workgroup-3DHP23FAPGT12C1D0QJAVOKVR.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "os_workgroup"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/ptrauth-8PNAK9CFX7MGFSDRGEWP0249B.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ptrauth"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/ptrcheck-COSZEIVN54E9WNG7WE9N5TSYG.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ptrcheck"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/simd\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/simd-7DTLJVXSECYAARFBWQAJGIIKV.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "simd"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/c_standard_library.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/string_h-6R86PYVVJPGKM5UH47KM8P9B8.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "string_h"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation2.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-nico-Desktop-affiliateo--claude-worktrees-affiliate-o-notification-sound-5d1d58\/1805f5bf-1db3-49f1-966f-29a09a795f23\/scratchpad\/sdk-swift\/.build\/out\/SDKExplicitPrecompiledModules\/sys_types-2O2QPMXXNL7UK2QID49B430IR.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "sys_types"
+  }
+]

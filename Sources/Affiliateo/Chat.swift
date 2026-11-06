@@ -115,7 +115,9 @@ final class LiveChat {
     }
 
     func setBottomPadding(_ points: CGFloat) {
-        bottomPadding = max(0, min(points, 400))
+        // Any height (4.16.3; 400 at most before): clamp(_:) keeps the bubble
+        // inside the window, so an app can lift it up beside its content.
+        bottomPadding = max(0, points)
         bubble?.bottomPadding = bottomPadding
         bubble?.place()
     }
@@ -887,7 +889,13 @@ final class ChatBubbleView: UIView {
         let bounds = window.bounds
         return CGPoint(
             x: max(insets.right + 8, min(bounds.width - size - insets.left - 8, point.x)),
-            y: max(insets.bottom + bottomPadding + 8, min(bounds.height - size - insets.top - 8, point.y))
+            y: CGFloat(ChatRules.clampedBottom(
+                Double(point.y),
+                size: Double(size),
+                height: Double(bounds.height),
+                insets: (Double(insets.top), Double(insets.bottom)),
+                padding: Double(bottomPadding)
+            ))
         )
     }
 

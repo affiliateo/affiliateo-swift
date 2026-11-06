@@ -249,6 +249,23 @@ enum ChatRules {
         )
     }
 
+    /// The bubble's distance from the bottom of the window (4.16.3): at
+    /// least `gap` above the safe area plus the app's bottom padding, and at
+    /// most `gap` under the top of the safe area. A padding too tall for the
+    /// window keeps it just under the top instead of pushing it off screen.
+    static func clampedBottom(
+        _ y: Double,
+        size: Double,
+        height: Double,
+        insets: (top: Double, bottom: Double),
+        padding: Double,
+        gap: Double = 8
+    ) -> Double {
+        let highest = height - size - insets.top - gap
+        let lowest = min(insets.bottom + padding + gap, highest)
+        return max(lowest, min(highest, y))
+    }
+
     /// Whether the bubble belongs on the app's pages at all: the app asked
     /// for it and the chat is on with its bubble showing. A config that says
     /// the chat is off (a fresh read or the app channel) takes it away.

@@ -1,0 +1,4 @@
+module Affiliateo {
+header "Affiliateo-Swift.h"
+export *
+}
