@@ -602,12 +602,36 @@ enum ChatRules {
     /// The shortest and the longest time between two wiggles, in seconds.
     static let wiggleMinSeconds = 3
     static let wiggleMaxSeconds = 3600
-    /// One wiggle lasts about this long.
-    static let wiggleDuration: TimeInterval = 0.6
-    /// One wiggle, in degrees, spread evenly over `wiggleDuration`: a few
-    /// small left and right turns that die down, then the bubble rests. The
-    /// same turns as the website's bubble and the other SDKs (KEEP IN STEP).
-    static let wiggleDegrees: [Double] = [0, -12, 10, -8, 6, -3, 0]
+    /// One wiggle lasts this long. The motion below is the one the website's
+    /// bubble and the other SDKs play (KEEP IN STEP): the whole bubble turns
+    /// around its center and grows a touch, as one piece.
+    static let wiggleDuration: TimeInterval = 0.9
+    /// How many even steps the animation is drawn in: one for each frame of
+    /// a 120 Hz screen, with a straight step between two of them. The first
+    /// version had seven turns, each easing to a stop, which looked jerky.
+    static let wiggleSteps = 108
+
+    /// The turn, in degrees, at progress `p` (0 at the start, 1 at the end):
+    /// three full left and right swings that die down smoothly, the first
+    /// about 14 degrees, the last about 1.
+    static func wiggleAngle(_ p: Double) -> Double {
+        guard p > 0, p < 1 else { return 0 }
+        return 16 * sin(6 * Double.pi * p) * pow(1 - p, 1.2)
+    }
+
+    /// The size at progress `p`: it grows a touch (to 1.06) and settles back.
+    static func wiggleScale(_ p: Double) -> Double {
+        guard p > 0, p < 1 else { return 1 }
+        return 1 + 0.06 * sin(Double.pi * p)
+    }
+
+    /// One wiggle as the animation plays it: the turn (degrees) and the size
+    /// at `steps` + 1 evenly spaced moments, from rest to rest.
+    static func wiggleCurve(steps: Int = ChatRules.wiggleSteps) -> (angles: [Double], scales: [Double]) {
+        let count = max(steps, 1)
+        let moments = (0...count).map { Double($0) / Double(count) }
+        return (moments.map { wiggleAngle($0) }, moments.map { wiggleScale($0) })
+    }
 
     /// The config's `bubble.wiggle_seconds`: seconds between two wiggles,
     /// 0 for off. A config without the field (a server from before the

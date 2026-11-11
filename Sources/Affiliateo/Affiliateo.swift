@@ -1267,7 +1267,7 @@ public enum Affiliateo {
     /// number of seconds, 3 at least; `0` or `nil` switches the wiggle off.
     /// Leave this call out to use the dashboard's choice.
     ///
-    /// Every so many seconds the bubble does one short wiggle (about 0.6 s)
+    /// Every so many seconds the bubble does one short wiggle (about 0.9 s)
     /// and rests: only while it is on screen, the chat is closed, the app is
     /// in front and nobody is dragging it, and never with Reduce Motion on.
     ///

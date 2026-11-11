@@ -90,24 +90,88 @@ final class ChatNotificationRulesTests: XCTestCase {
         XCTAssertFalse(wiggles(reduce: true))
     }
 
-    /// About 0.6 s: a few small left and right turns of 10 to 12 degrees
-    /// that die down, starting and ending at rest.
-    func testOneWiggleIsShortSmallAndDiesDown() {
-        let turns = ChatRules.wiggleDegrees
-        // The website's bubble and the other SDKs turn the same way.
-        XCTAssertEqual(turns, [0, -12, 10, -8, 6, -3, 0])
-        XCTAssertEqual(ChatRules.wiggleDuration, 0.6, accuracy: 0.001)
-        XCTAssertEqual(turns.first, 0)
-        XCTAssertEqual(turns.last, 0)
-        let swings = turns.dropFirst().dropLast()
-        XCTAssertGreaterThanOrEqual(swings.count, 3)
-        let largest = swings.map { abs($0) }.max() ?? 0
-        XCTAssertGreaterThanOrEqual(largest, 10)
-        XCTAssertLessThanOrEqual(largest, 12)
-        for (a, b) in zip(swings, swings.dropFirst()) {
-            XCTAssertLessThan(a * b, 0, "left, then right")
-            XCTAssertLessThan(abs(b), abs(a), "each turn smaller than the last")
+    /// Version 2 of the motion, the same on the website and in every SDK:
+    /// 0.9 s, from rest to rest, never past 16 degrees, a first swing of
+    /// about 14, and the bubble a touch bigger (1.06) half way.
+    func testOneWiggleIsTheSharedMotion() {
+        XCTAssertEqual(ChatRules.wiggleDuration, 0.9, accuracy: 0.0001)
+        XCTAssertEqual(ChatRules.wiggleAngle(0), 0)
+        XCTAssertEqual(ChatRules.wiggleAngle(1), 0)
+        XCTAssertEqual(ChatRules.wiggleScale(0), 1)
+        XCTAssertEqual(ChatRules.wiggleScale(1), 1)
+        // The formula itself: 16 * sin(6 pi p) * (1 - p)^1.2 and 1 + 0.06 * sin(pi p).
+        XCTAssertEqual(ChatRules.wiggleAngle(0.25), 16 * sin(1.5 * Double.pi) * pow(0.75, 1.2), accuracy: 0.000001)
+        XCTAssertEqual(ChatRules.wiggleAngle(1.0 / 12), 16 * pow(11.0 / 12, 1.2), accuracy: 0.000001)
+        XCTAssertEqual(ChatRules.wiggleScale(0.5), 1.06, accuracy: 0.000001)
+        XCTAssertEqual(ChatRules.wiggleScale(0.25), 1 + 0.06 * sin(Double.pi / 4), accuracy: 0.000001)
+        // Before the start and after the end it is at rest.
+        XCTAssertEqual(ChatRules.wiggleAngle(-0.5), 0)
+        XCTAssertEqual(ChatRules.wiggleAngle(1.5), 0)
+        XCTAssertEqual(ChatRules.wiggleScale(2), 1)
+
+        let fine = (0...1000).map { Double($0) / 1000 }
+        let angles = fine.map(ChatRules.wiggleAngle)
+        let scales = fine.map(ChatRules.wiggleScale)
+        // The first peak is the largest: between 13 and 15 degrees.
+        let firstPeak = angles.prefix(170).map { abs($0) }.max() ?? 0
+        XCTAssertGreaterThan(firstPeak, 13)
+        XCTAssertLessThan(firstPeak, 15)
+        XCTAssertEqual(angles.map { abs($0) }.max() ?? 0, firstPeak, accuracy: 0.000001)
+        XCTAssertLessThanOrEqual(angles.map { abs($0) }.max() ?? 0, 16)
+        // The size: never under 1, 1.06 at the top.
+        XCTAssertEqual(scales.max() ?? 0, 1.06, accuracy: 0.000001)
+        XCTAssertGreaterThanOrEqual(scales.min() ?? 0, 1)
+    }
+
+    /// Three full left and right swings, each smaller than the one before.
+    func testTheWiggleSwingsThreeTimesAndDiesDown() {
+        let fine = (1..<1000).map { ChatRules.wiggleAngle(Double($0) / 1000) }
+        // Each half swing's largest turn, in order.
+        var peaks: [Double] = []
+        var current = 0.0
+        var sign = 0.0
+        for angle in fine where angle != 0 {
+            let s: Double = angle > 0 ? 1 : -1
+            if s != sign, sign != 0 {
+                peaks.append(current)
+                current = 0
+            }
+            sign = s
+            current = max(current, abs(angle))
         }
+        peaks.append(current)
+        XCTAssertEqual(peaks.count, 6, "three swings: left and right, three times")
+        for (earlier, later) in zip(peaks, peaks.dropFirst()) {
+            XCTAssertLessThan(later, earlier)
+        }
+        XCTAssertLessThan(peaks.last ?? 99, 1.5, "the last one is about a degree")
+    }
+
+    /// What the animation plays: a sample for every frame, in even steps,
+    /// from rest to rest, so no step is a jump.
+    func testTheWiggleIsDrawnOnEveryFrame() {
+        let curve = ChatRules.wiggleCurve()
+        XCTAssertGreaterThanOrEqual(ChatRules.wiggleSteps, 54, "a sample for each frame of 0.9 s at 60 frames a second, or more")
+        XCTAssertEqual(curve.angles.count, ChatRules.wiggleSteps + 1)
+        XCTAssertEqual(curve.scales.count, ChatRules.wiggleSteps + 1)
+        XCTAssertEqual(curve.angles.first, 0)
+        XCTAssertEqual(curve.angles.last, 0)
+        XCTAssertEqual(curve.scales.first, 1)
+        XCTAssertEqual(curve.scales.last, 1)
+        // Even steps: sample i is the formula at i / steps.
+        XCTAssertEqual(curve.angles[27], ChatRules.wiggleAngle(27.0 / Double(ChatRules.wiggleSteps)), accuracy: 0.000001)
+        XCTAssertEqual(curve.scales[54], ChatRules.wiggleScale(54.0 / Double(ChatRules.wiggleSteps)), accuracy: 0.000001)
+        // No jump between two frames: under 3 degrees and under 0.005 in size.
+        for (a, b) in zip(curve.angles, curve.angles.dropFirst()) {
+            XCTAssertLessThan(abs(b - a), 3)
+        }
+        for (a, b) in zip(curve.scales, curve.scales.dropFirst()) {
+            XCTAssertLessThan(abs(b - a), 0.005)
+        }
+        // A coarser drawing still starts and ends at rest.
+        let coarse = ChatRules.wiggleCurve(steps: 40)
+        XCTAssertEqual(coarse.angles.count, 41)
+        XCTAssertEqual(coarse.angles.last, 0)
     }
 
     // MARK: A reply as a notification

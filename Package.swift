@@ -7,7 +7,9 @@
 // 4.17.0: Live Chat replies arrive as notifications, like messages, and the
 //   chat bubble can wiggle.
 //   - The wiggle: every so many seconds the bubble does one short wiggle
-//     (about 0.6 s) and rests. The seconds come from the new Wiggle setting
+//     (0.9 s: the whole bubble turns left and right, three swings that die
+//     down, and grows a touch) and rests. The seconds come from the new
+//     Wiggle setting
 //     in the dashboard's Live Chat settings (config `bubble.wiggle_seconds`,
 //     0 = off; a server without the field never wiggles), or from the app's
 //     own code: Affiliateo.setChatBubbleWiggle(seconds:) (3 at least, 0 or

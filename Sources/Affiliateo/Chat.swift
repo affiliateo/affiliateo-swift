@@ -24,7 +24,8 @@ import WebKit
 /// once (a `config` frame, applied as a fresh config read is).
 ///
 /// 4.17.0: the bubble wiggles every so often (the owner's seconds, or the
-/// app's own with setChatBubbleWiggle), and a reply shows as a notification,
+/// app's own with setChatBubbleWiggle; one smooth 0.9 s wiggle of the whole
+/// bubble, ChatRules.wiggleAngle), and a reply shows as a notification,
 /// like a message. The app hands over its push token (setChatPushToken), asks
 /// the SDK how to show a notification that arrives while it is open
 /// (chatNotificationPresentation) and passes it the taps
@@ -514,6 +515,9 @@ final class LiveChat {
     /// dashboard's; stops it otherwise.
     private func syncWiggle() {
         let shown = bubble?.isHidden == false && screen == nil && inFront
+        // Hidden, behind the opening chat or out of sight: a wiggle that is
+        // playing is cut, back to rest.
+        if !shown { bubble?.stopWiggle() }
         let seconds = shown ? ChatRules.wiggleEvery(override: wiggleOverride, config: config) : 0
         guard seconds != wiggleEvery else { return }
         wiggleTimer?.invalidate()
@@ -716,6 +720,8 @@ final class LiveChat {
         controller.onRead = { LiveChat.shared.setUnread(0) }
         controller.onClosed = { LiveChat.shared.chatClosed() }
         screen = controller
+        // No wiggle while the chat slides up over the bubble.
+        syncWiggle()
         // They see the greeting now; a new one counts again.
         if let id = config?.bubble.greetingId { UserDefaults.standard.set(id, forKey: ChatRules.greetingKey(appId)) }
         greetingPending = false
@@ -1350,19 +1356,36 @@ final class ChatBubbleView: UIView {
         )
     }
 
-    /// One short wiggle (4.17.0): a few small left and right turns that die
-    /// down (ChatRules.wiggleDegrees), about 0.6 s, then it rests. The red
-    /// number and the green dot are part of the bubble, so they move with it.
+    /// One wiggle (4.17.0): the whole bubble turns left and right around its
+    /// center, three swings that die down, and grows a touch on the way
+    /// (ChatRules.wiggleAngle and wiggleScale), 0.9 s, then it rests. It is
+    /// played on the bubble's own layer, so the circle, the icon, the red
+    /// number and the green dot move as one piece. The curve is sampled once
+    /// per frame with straight steps between the samples and no easing, so
+    /// it never stops and starts on the way.
     func wiggle() {
         guard !isDragging, layer.animation(forKey: Self.wiggleKey) == nil else { return }
-        let turns = CAKeyframeAnimation(keyPath: "transform.rotation.z")
-        turns.values = ChatRules.wiggleDegrees.map { $0 * Double.pi / 180 }
-        turns.duration = ChatRules.wiggleDuration
-        turns.timingFunctions = Array(
-            repeating: CAMediaTimingFunction(name: .easeInEaseOut),
-            count: ChatRules.wiggleDegrees.count - 1
-        )
-        layer.add(turns, forKey: Self.wiggleKey)
+        let curve = ChatRules.wiggleCurve()
+        let turn = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        turn.values = curve.angles.map { $0 * Double.pi / 180 }
+        turn.calculationMode = .linear
+        let size = CAKeyframeAnimation(keyPath: "transform.scale")
+        size.values = curve.scales
+        size.calculationMode = .linear
+        turn.duration = ChatRules.wiggleDuration
+        size.duration = ChatRules.wiggleDuration
+        let both = CAAnimationGroup()
+        both.animations = [turn, size]
+        both.duration = ChatRules.wiggleDuration
+        both.timingFunction = CAMediaTimingFunction(name: .linear)
+        layer.add(both, forKey: Self.wiggleKey)
+    }
+
+    /// Cuts a wiggle that is playing: the bubble is back at rest at once
+    /// (no turn, its own size). For a drag, and when the bubble is hidden or
+    /// the chat opens.
+    func stopWiggle() {
+        layer.removeAnimation(forKey: Self.wiggleKey)
     }
 
     @objc private func tapped() {
@@ -1374,7 +1397,7 @@ final class ChatBubbleView: UIView {
         case .began:
             // A wiggle stops under the finger and none starts during the drag.
             isDragging = true
-            layer.removeAnimation(forKey: Self.wiggleKey)
+            stopWiggle()
             dragStart = currentOffset
             autoresizingMask = [.flexibleLeftMargin, .flexibleTopMargin]
         case .changed:

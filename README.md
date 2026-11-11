@@ -265,7 +265,8 @@ Affiliateo.setChatBubbleWiggle(seconds: 20)
   inbox labels the thread with the device, the Affiliateo visitor and, after
   `identify(_:)`, your user id; none of them while the person has opted out.
 - The bubble can wiggle (4.17.0): every so many seconds it does one short
-  wiggle (about 0.6 s) and rests. Choose the seconds under **Wiggle** in the
+  wiggle (about 0.9 s: the whole bubble turns left and right and settles) and
+  rests. Choose the seconds under **Wiggle** in the
   Live Chat settings of your dashboard (Off, or 10 to 60 seconds), or in your
   own code with `setChatBubbleWiggle(seconds:)`, which wins. It wiggles only
   while it is on screen, the chat is closed, the app is in front and nobody is
