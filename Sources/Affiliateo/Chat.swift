@@ -1120,6 +1120,9 @@ final class ChatBubbleView: UIView {
     /// True while the person drags the bubble: it does not wiggle then.
     private(set) var isDragging = false
     static let wiggleKey = "affiliateo-wiggle"
+    /// When the wiggle that is playing ends (on CACurrentMediaTime's clock);
+    /// 0 while none plays.
+    private var wiggleEnds: CFTimeInterval = 0
 
     init(
         appId: String,
@@ -1363,8 +1366,15 @@ final class ChatBubbleView: UIView {
     /// number and the green dot move as one piece. The curve is sampled once
     /// per frame with straight steps between the samples and no easing, so
     /// it never stops and starts on the way.
-    func wiggle() {
-        guard !isDragging, layer.animation(forKey: Self.wiggleKey) == nil else { return }
+    ///
+    /// Whether one is still playing goes by the clock (`now`, the tests pass
+    /// their own), not by what sits on the layer: Core Animation can leave a
+    /// finished animation there until it next tidies up, and asking the
+    /// layer made every second wiggle of an idle app skip.
+    func wiggle(now: CFTimeInterval = CACurrentMediaTime()) {
+        guard !isDragging, now >= wiggleEnds else { return }
+        layer.removeAnimation(forKey: Self.wiggleKey)
+        wiggleEnds = now + ChatRules.wiggleDuration
         let curve = ChatRules.wiggleCurve()
         let turn = CAKeyframeAnimation(keyPath: "transform.rotation.z")
         turn.values = curve.angles.map { $0 * Double.pi / 180 }
@@ -1386,6 +1396,7 @@ final class ChatBubbleView: UIView {
     /// the chat opens.
     func stopWiggle() {
         layer.removeAnimation(forKey: Self.wiggleKey)
+        wiggleEnds = 0
     }
 
     @objc private func tapped() {

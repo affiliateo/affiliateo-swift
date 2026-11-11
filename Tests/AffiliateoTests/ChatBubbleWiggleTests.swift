@@ -85,11 +85,33 @@ final class ChatBubbleWiggleTests: XCTestCase {
 
     func testAWiggleInProgressIsNotStartedAgain() {
         let view = bubble()
-        view.wiggle()
+        view.wiggle(now: 100)
         let first = view.layer.animation(forKey: ChatBubbleView.wiggleKey)
-        view.wiggle()
+        XCTAssertNotNil(first)
+        view.wiggle(now: 100.5)
+        XCTAssertTrue(view.layer.animation(forKey: ChatBubbleView.wiggleKey) === first)
+        view.wiggle(now: 100.89)
         XCTAssertTrue(view.layer.animation(forKey: ChatBubbleView.wiggleKey) === first)
         XCTAssertFalse(view.isDragging)
+    }
+
+    /// Core Animation can leave a finished wiggle on the layer until it next
+    /// tidies up. Going by that made every second wiggle of an idle app skip
+    /// (seen in a recording: one every 6 seconds for a setting of 3). The
+    /// clock decides: once the 0.9 s are over, the next one plays.
+    func testAFinishedWiggleLeftOnTheLayerDoesNotBlockTheNext() {
+        let view = bubble()
+        view.wiggle(now: 100)
+        let first = view.layer.animation(forKey: ChatBubbleView.wiggleKey)
+        XCTAssertNotNil(first)
+        // 3 seconds later the first one is over, and here it is still attached.
+        view.wiggle(now: 103)
+        let second = view.layer.animation(forKey: ChatBubbleView.wiggleKey)
+        XCTAssertNotNil(second)
+        XCTAssertFalse(second === first, "a new wiggle replaced the finished one")
+        // Once its own 0.9 s are over it may start again.
+        view.wiggle(now: 104)
+        XCTAssertFalse(view.layer.animation(forKey: ChatBubbleView.wiggleKey) === second)
     }
 
     /// A drag, a hidden bubble or the chat opening cuts it: back to rest at once.
@@ -101,7 +123,7 @@ final class ChatBubbleWiggleTests: XCTestCase {
         XCTAssertNil(view.layer.animation(forKey: ChatBubbleView.wiggleKey))
         XCTAssertEqual(view.transform, .identity)
         XCTAssertTrue(CATransform3DIsIdentity(view.layer.transform))
-        // And it can play again afterwards.
+        // And it can play again right away afterwards.
         view.wiggle()
         XCTAssertNotNil(view.layer.animation(forKey: ChatBubbleView.wiggleKey))
     }
