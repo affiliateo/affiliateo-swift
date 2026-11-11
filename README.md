@@ -231,6 +231,9 @@ Affiliateo.setChatBubbleLook(color: "#7C3AED", iconColor: "#FFFFFF", sendColor: 
 
 // The message box text in your own words and language (4.15.0): pass your own translation
 Affiliateo.setChatPlaceholder(String(localized: "Ask us anything"))
+
+// Your own time between two wiggles of the bubble (4.17.0): 3 seconds at least, 0 or nil for off
+Affiliateo.setChatBubbleWiggle(seconds: 20)
 ```
 
 - Nothing shows until your code calls `showChatBubble()` or `openChat()`, so
@@ -261,8 +264,88 @@ Affiliateo.setChatPlaceholder(String(localized: "Ask us anything"))
   (4.15.4; deleting the app starts a new thread). Your
   inbox labels the thread with the device, the Affiliateo visitor and, after
   `identify(_:)`, your user id; none of them while the person has opted out.
+- The bubble can wiggle (4.17.0): every so many seconds it does one short
+  wiggle (about 0.6 s) and rests. Choose the seconds under **Wiggle** in the
+  Live Chat settings of your dashboard (Off, or 10 to 60 seconds), or in your
+  own code with `setChatBubbleWiggle(seconds:)`, which wins. It wiggles only
+  while it is on screen, the chat is closed, the app is in front and nobody is
+  dragging it, and never with Reduce Motion on.
 - App Store privacy: chat messages are **Customer Support** data (under User
   Content).
+
+### Replies as notifications (4.17.0)
+
+A reply from your team can reach the person as a notification, like a
+message: your Live Chat app's name, then the reply. Tapping it opens the chat
+over whatever is on screen; the app stays where it was. The SDK never asks
+for the notification permission itself: your app does, when it suits it.
+
+```swift
+import Affiliateo
+import UserNotifications
+
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    // 1. Hand the push token to the SDK each time iOS gives it to you.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Affiliateo.setChatPushToken(deviceToken)
+    }
+
+    // 2. A notification while the app is open: the SDK says how a chat one shows.
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler(Affiliateo.chatNotificationPresentation(for: notification) ?? [])
+    }
+
+    // 3. A tap: the SDK opens the chat for a chat notification.
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if !Affiliateo.handleChatNotification(response) {
+            // one of your own notifications
+        }
+        completionHandler()
+    }
+}
+
+// 4. Right after the person allows notifications, and at each launch when
+//    they already are allowed:
+UIApplication.shared.registerForRemoteNotifications()
+Affiliateo.chatNotificationsAllowed()
+```
+
+- **What your app needs:** the Push Notifications capability (the
+  `aps-environment` entitlement). In SwiftUI, attach the delegate with
+  `@UIApplicationDelegateAdaptor(AppDelegate.self)`.
+- `setChatPushToken(_:)` registers the phone with Affiliateo for this app:
+  the token, your bundle id, Apple's push service for the build (sandbox for
+  a development build, production otherwise, read from how the build was
+  signed), the same device id the chat uses, and the phone's language. It is
+  sent once each launch and again when the token, the app, the language or
+  the signed-in user changes. Nothing is sent while Live Chat is off for the
+  app or the person has opted out. `logout()` has the server forget the
+  phone; it is registered again once the next person starts a chat.
+- `chatNotificationPresentation(for:)` answers `nil` for a notification that
+  is not the chat's (use your own rule), an empty set while the chat is open
+  on screen, and banner, list and sound otherwise.
+- `handleChatNotification(_:)` answers `true` for a chat notification and
+  opens the chat, also after a cold start, as soon as the app has a screen to
+  show it on. Opening the chat clears its notifications from the list.
+- **No push yet?** Steps 2 to 4 are enough for a banner while the app is
+  open: on a phone without a registered push token the SDK posts the
+  notification itself when a reply arrives with the app in front and the
+  chat closed.
+- **The greeting as a notification:** when your greeting counts as an unread
+  message (the red 1) and nobody on the phone has seen it,
+  `chatNotificationsAllowed()` makes it arrive as ONE notification, now or as
+  soon as the SDK has the chat's settings. It never goes out twice for the
+  same greeting, and the red 1 stays until the chat is opened.
+- Pushes are sent with Affiliateo's own Apple key for now, so they reach apps
+  of Affiliateo's own Apple team. Other apps still get the banner while the
+  app is open if they leave out step 1.
+- App Store privacy: the push token is a **Device ID**, used for App
+  Functionality.
 
 ## What it does
 

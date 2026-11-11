@@ -1,5 +1,6 @@
 #if os(iOS)
 import UIKit
+import UserNotifications
 import WebKit
 
 /// Live Chat (4.14.0): the app's users chat in real time with the business,
@@ -21,6 +22,17 @@ import WebKit
 /// number live. While the app shows the bubble and is in front, the app's own
 /// channel brings the owner's on/off switch and the team's Online switches at
 /// once (a `config` frame, applied as a fresh config read is).
+///
+/// 4.17.0: the bubble wiggles every so often (the owner's seconds, or the
+/// app's own with setChatBubbleWiggle), and a reply shows as a notification,
+/// like a message. The app hands over its push token (setChatPushToken), asks
+/// the SDK how to show a notification that arrives while it is open
+/// (chatNotificationPresentation) and passes it the taps
+/// (handleChatNotification), which open the chat over whatever is on screen.
+/// Without a registered push token the SDK posts the notification itself
+/// while the app is in front, and once the app says notifications are
+/// allowed (chatNotificationsAllowed) a greeting nobody has seen goes out as
+/// one too, once.
 ///
 /// The visitor's key to their thread (a token the server hands out with their
 /// first message) is kept in the Keychain, on this phone only (4.15.4, review
@@ -49,7 +61,9 @@ final class LiveChat {
     private var inFront = true
     /// Internal for the tests.
     var bubble: ChatBubbleView?
-    private weak var screen: ChatViewController?
+    private weak var screen: ChatViewController? {
+        didSet { ChatOnScreen.set(screen != nil) }
+    }
     /// Points the app keeps free above the bottom safe area (its tab bar or
     /// floating button), set with Affiliateo.setChatBubblePadding(bottom:).
     private var bottomPadding: CGFloat = 0
@@ -72,6 +86,36 @@ final class LiveChat {
     /// The server refused the app channel (no such app, or the chat is off):
     /// not tried again until a config read says the chat is on.
     private var appRefused = false
+
+    // The wiggle (4.17.0).
+    /// The app's own seconds between two wiggles (setChatBubbleWiggle), 0 for
+    /// off, over the dashboard's; nil while the app made no choice.
+    private var wiggleOverride: Int?
+    private var wiggleTimer: Timer?
+    /// The seconds the running timer was started with; 0 while none runs.
+    private var wiggleEvery = 0
+
+    // Notifications (4.17.0).
+    /// Apple's push token for this install, hex, as the app handed it over.
+    private var pushToken: String?
+    private var pushBusy = false
+    private var pushAgain = false
+    /// The registration the server has answered in this launch (whatever it
+    /// said): not sent again until something in it changes.
+    private var pushAnswered: ChatRules.PushDevice?
+    /// When a request last got no answer at all: the next waits a while.
+    private var pushTriedAt: Date?
+    /// The server answered a "forget this phone" with an error: left until
+    /// the next launch.
+    private var pushForgetFailed = false
+    /// The app said notifications are allowed (chatNotificationsAllowed).
+    private var allowed = false
+    private var greetingBusy = false
+    /// A tapped notification's chat, waiting for a screen to open on.
+    private var pendingOpen = false
+    /// Tries left for it while the app is still launching or the screen on
+    /// top is busy.
+    private var openRetries = 0
 
     private init() {}
 
@@ -156,6 +200,10 @@ final class LiveChat {
             wantsOpen = false
             open()
         }
+        // What the app asked for about notifications before it did (4.17.0).
+        tryPendingOpen()
+        if allowed { notificationsAllowed() }
+        if pushToken != nil { pushChanged() } else { syncPush() }
     }
 
     /// The app called page(_:): the owner's screen rules follow it.
@@ -177,6 +225,23 @@ final class LiveChat {
         // A token the closing page hands over late is not kept.
         screen?.onToken = nil
         screen?.dismiss(animated: true)
+        // The server forgets this phone too (4.17.0): a reply to the last
+        // person's thread must not show up for whoever holds the phone
+        // next. It is registered again once the next person starts a thread
+        // of their own.
+        if let env {
+            let defaults = UserDefaults.standard
+            if let token = savedPush(env.appId)?.token ?? pushToken {
+                defaults.set(token, forKey: ChatRules.pushForgetKey(env.appId))
+            }
+            defaults.removeObject(forKey: ChatRules.pushKey(env.appId))
+            defaults.set(true, forKey: ChatRules.pushHeldKey(env.appId))
+            // Whatever the server answered before was about the last person.
+            pushAnswered = nil
+            syncPush()
+            // Nor do their notifications stay in the list.
+            clearNotices()
+        }
         // Nothing of their chat stays in web storage (4.15.1): the chat page
         // runs in a private store now, and whatever an older version left in
         // the shared one for Affiliateo's host goes. Cookies are left alone.
@@ -234,7 +299,17 @@ final class LiveChat {
         noteGreeting(answer, appId: env.appId)
         // The chat is on: the app channel may be tried again.
         if answer.enabled { appRefused = false }
+        configArrived()
         return answer
+    }
+
+    /// A config came in (a read, or the app channel): what waits for one
+    /// goes on (4.17.0): the push token's registration, the greeting's
+    /// notification and the wiggle's pace.
+    private func configArrived() {
+        syncPush()
+        notifyGreetingIfDue()
+        syncWiggle()
     }
 
     /// Somebody who already wrote has seen the greeting.
@@ -264,6 +339,7 @@ final class LiveChat {
         }
         placeBubble()
         paintBubble()
+        configArrived()
     }
 
     /// Replies the person has not seen, for the red number on the bubble.
@@ -312,6 +388,10 @@ final class LiveChat {
     /// and a reply may have come in.
     private func cameToFront() {
         inFront = true
+        // A tapped notification's chat, and a push token the server has not
+        // confirmed yet (4.17.0).
+        tryPendingOpen()
+        syncPush()
         guard wantsBubble, env != nil else { return }
         Task {
             await refreshConfig(force: false)
@@ -324,6 +404,7 @@ final class LiveChat {
         inFront = false
         stopSocket()
         syncAppChannel()
+        syncWiggle()
     }
 
     private func setUnread(_ count: Int) {
@@ -338,6 +419,8 @@ final class LiveChat {
     // MARK: The bubble
 
     private func placeBubble() {
+        // The wiggle runs only while the bubble is on screen (4.17.0).
+        defer { syncWiggle() }
         syncAppChannel()
         guard ChatRules.showsBubble(wanted: wantsBubble, config: config), let env, let config else {
             removeBubble()
@@ -414,6 +497,47 @@ final class LiveChat {
         stopSocket()
         bubble?.removeFromSuperview()
         bubble = nil
+        syncWiggle()
+    }
+
+    // MARK: The wiggle (4.17.0)
+
+    /// The app's own seconds between two wiggles (0 for off), over the
+    /// dashboard's.
+    func setWiggle(_ seconds: Int) {
+        wiggleOverride = seconds
+        syncWiggle()
+    }
+
+    /// Runs the wiggle's timer while the bubble is on screen, the chat is
+    /// closed and the app is in front, at the app's own pace or the
+    /// dashboard's; stops it otherwise.
+    private func syncWiggle() {
+        let shown = bubble?.isHidden == false && screen == nil && inFront
+        let seconds = shown ? ChatRules.wiggleEvery(override: wiggleOverride, config: config) : 0
+        guard seconds != wiggleEvery else { return }
+        wiggleTimer?.invalidate()
+        wiggleTimer = nil
+        wiggleEvery = seconds
+        guard seconds > 0 else { return }
+        wiggleTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(seconds), repeats: true) { _ in
+            Task { @MainActor in LiveChat.shared.wiggleNow() }
+        }
+    }
+
+    /// One tick of the timer: the bubble wiggles once, unless something
+    /// speaks against it right now (ChatRules.wigglesNow).
+    private func wiggleNow() {
+        guard let bubble else { return }
+        let wiggles = ChatRules.wigglesNow(
+            every: wiggleEvery,
+            bubbleShown: !bubble.isHidden && bubble.window != nil,
+            chatOpen: screen != nil,
+            inFront: inFront && UIApplication.shared.applicationState == .active,
+            dragging: bubble.isDragging,
+            reduceMotion: UIAccessibility.isReduceMotionEnabled
+        )
+        if wiggles { bubble.wiggle() }
     }
 
     // MARK: The live red number
@@ -450,8 +574,11 @@ final class LiveChat {
                       frame["kind"] as? String == "live_chat"
                 else { continue }
                 let event = frame["event"] as? String
-                if event == "message", (frame["message"] as? [String: Any])?["sender"] as? String == "team" {
+                if let message = ChatRules.teamMessage(frame) {
                     setUnread(unread + 1)
+                    // As a notification too, on a phone without a registered
+                    // push token (4.17.0).
+                    notifyMessage(message)
                 } else if event == "read", frame["by"] as? String == "visitor" {
                     setUnread(0)
                 }
@@ -555,9 +682,13 @@ final class LiveChat {
     // MARK: The chat screen
 
     private func presentChat() {
-        guard screen == nil else { return }
+        guard screen == nil else {
+            openRetries = 0
+            return
+        }
         guard let env, let window = Self.hostWindow(), let presenter = Self.topController(window.rootViewController) else {
             log("openChat: no screen to show the chat on yet")
+            retryOpenLater()
             return
         }
         let dark = presenter.traitCollection.userInterfaceStyle == .dark
@@ -578,6 +709,9 @@ final class LiveChat {
         controller.onToken = { token in
             guard ChatSignOuts.current == openedAt else { return }
             ChatTokenStore.standard.save(token, appId: appId)
+            // A thread of their own: after a sign-out the phone may be
+            // registered for its replies again (4.17.0).
+            LiveChat.shared.syncPush()
         }
         controller.onRead = { LiveChat.shared.setUnread(0) }
         controller.onClosed = { LiveChat.shared.chatClosed() }
@@ -600,12 +734,30 @@ final class LiveChat {
             guard let self, let controller, self.screen === controller else { return }
             self.stopSocket()
             self.bubble?.isHidden = true
+            self.syncWiggle()
+            self.openRetries = 0
+            // They are reading the chat now: its notifications leave the
+            // list, as a conversation's do in Messages (4.17.0).
+            self.clearNotices()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self, weak controller] in
             guard let self, let controller, self.screen === controller, controller.presentingViewController == nil else { return }
             self.log("openChat: the screen on top was busy presenting; try again")
             self.screen = nil
             self.placeBubble()
+            self.retryOpenLater()
+        }
+    }
+
+    /// A tapped notification's chat is tried again by itself (4.17.0): the
+    /// app may still be launching, or the screen on top was busy presenting.
+    /// A plain openChat() is left to the app, as before.
+    private func retryOpenLater() {
+        guard openRetries > 0 else { return }
+        openRetries -= 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self, self.screen == nil else { return }
+            self.presentChat()
         }
     }
 
@@ -613,6 +765,291 @@ final class LiveChat {
         screen = nil
         setUnread(0)
         placeBubble()
+    }
+
+    // MARK: Notifications (4.17.0)
+
+    /// The person tapped a chat notification (handleChatNotification): the
+    /// chat opens over whatever is on screen, as openChat() does, once the
+    /// app is in front with a screen to open it on. After a cold start that
+    /// is a moment later, so the request is kept until then.
+    func openFromNotification() {
+        observeForeground()
+        pendingOpen = true
+        tryPendingOpen()
+    }
+
+    private func tryPendingOpen() {
+        guard pendingOpen, env != nil, UIApplication.shared.applicationState == .active else { return }
+        pendingOpen = false
+        openRetries = 12
+        Task {
+            guard await refreshConfig(force: false).enabled else {
+                openRetries = 0
+                log("the notification's chat was skipped, the chat is off for this app")
+                return
+            }
+            presentChat()
+        }
+    }
+
+    /// The app says notifications are allowed (chatNotificationsAllowed): a
+    /// greeting nobody on this phone has seen goes out as one, now or as
+    /// soon as the config is here.
+    func notificationsAllowed() {
+        allowed = true
+        observeForeground()
+        // Before AffiliateoProvider: managerStarted comes back here.
+        guard env != nil else { return }
+        Task {
+            await refreshConfig(force: false)
+            notifyGreetingIfDue()
+        }
+    }
+
+    /// Posts the greeting as ONE notification per greeting and install
+    /// (ChatRules.greetingNoticeDue). The red 1 stays until the chat opens.
+    private func notifyGreetingIfDue() {
+        guard !greetingBusy, let env, let config else { return }
+        let language = Locale.preferredLanguages.first ?? "en"
+        let key = ChatRules.greetingNotifiedKey(env.appId)
+        guard ChatRules.greetingNoticeDue(
+            allowed: allowed,
+            config: config,
+            pending: greetingPending,
+            notifiedId: UserDefaults.standard.string(forKey: key),
+            chatOpen: screen != nil,
+            language: language
+        ), let id = config.bubble.greetingId, let greeting = ChatRules.greetingText(config, language: language)
+        else { return }
+        greetingBusy = true
+        Task {
+            defer { greetingBusy = false }
+            // iOS has the last word; the SDK never asks for the permission itself.
+            guard await Self.mayNotify(), screen == nil, greetingPending else { return }
+            UserDefaults.standard.set(id, forKey: key)
+            post(
+                title: Self.noticeTitle(config),
+                body: ChatRules.noticeBody(greeting, language: language),
+                notice: ChatRules.Notice(app: env.appId, greetingId: id),
+                identifier: "affiliateo-chat-greeting"
+            )
+        }
+    }
+
+    /// A team message came in on the socket: on a phone without a registered
+    /// push token the SDK posts the notification itself
+    /// (ChatRules.postsLocalNotice); a registered phone gets Affiliateo's push.
+    private func notifyMessage(_ message: ChatRules.TeamMessage) {
+        guard let env, ChatRules.postsLocalNotice(
+            inFront: inFront && UIApplication.shared.applicationState == .active,
+            chatOpen: screen != nil,
+            pushRegistered: savedPush(env.appId) != nil
+        ) else { return }
+        let title = Self.noticeTitle(config)
+        Task {
+            guard await Self.mayNotify(), screen == nil else { return }
+            post(
+                title: title,
+                body: ChatRules.noticeBody(message.body, language: Locale.preferredLanguages.first ?? "en"),
+                notice: ChatRules.Notice(app: env.appId, conversationId: message.conversationId, messageId: message.id),
+                identifier: "affiliateo-chat-" + (message.id ?? UUID().uuidString)
+            )
+        }
+    }
+
+    /// A notification of the SDK's own, with the look of Affiliateo's push:
+    /// the Live Chat app's name, the words, the default sound.
+    private func post(title: String, body: String, notice: ChatRules.Notice, identifier: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.threadIdentifier = ChatRules.noticeThread
+        content.userInfo = ChatRules.noticeInfo(notice)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            guard error != nil else { return }
+            Task { @MainActor in LiveChat.shared.log("a notification could not be posted") }
+        }
+    }
+
+    /// The Live Chat app's name, else the app's own.
+    private static func noticeTitle(_ config: ChatRules.Config?) -> String {
+        if let name = config?.appName { return name }
+        let info = Bundle.main.infoDictionary
+        return info?["CFBundleDisplayName"] as? String ?? info?["CFBundleName"] as? String ?? ""
+    }
+
+    /// Whether iOS lets the app post notifications.
+    private static func mayNotify() async -> Bool {
+        switch await UNUserNotificationCenter.current().notificationSettings().authorizationStatus {
+        case .authorized, .provisional, .ephemeral: return true
+        default: return false
+        }
+    }
+
+    /// The chat's notifications leave the list (the chat is open, or the
+    /// person signed out); the app's own stay.
+    private func clearNotices() {
+        UNUserNotificationCenter.current().getDeliveredNotifications { delivered in
+            let ours = delivered
+                .filter { ChatRules.notice($0.request.content.userInfo) != nil }
+                .map(\.request.identifier)
+            if !ours.isEmpty { UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ours) }
+        }
+    }
+
+    // MARK: The push token (4.17.0)
+
+    /// What the server last confirmed about this phone, kept across
+    /// launches: while there is one, replies come as Affiliateo's push, and
+    /// a sign-out knows which token the server is to forget.
+    private func savedPush(_ appId: String) -> ChatRules.PushDevice? {
+        UserDefaults.standard.data(forKey: ChatRules.pushKey(appId))
+            .flatMap { try? JSONDecoder().decode(ChatRules.PushDevice.self, from: $0) }
+    }
+
+    /// Apple's push service for this build (ChatRules.apnsEnvironment).
+    private static let pushEnvironment: String = {
+        #if targetEnvironment(simulator)
+        let simulator = true
+        #else
+        let simulator = false
+        #endif
+        #if DEBUG
+        let debugBuild = true
+        #else
+        let debugBuild = false
+        #endif
+        let profile = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision").flatMap { try? Data(contentsOf: $0) }
+        return ChatRules.apnsEnvironment(profile: profile, simulator: simulator, debugBuild: debugBuild)
+    }()
+
+    /// The app handed over its push token (setChatPushToken).
+    func setPushToken(_ token: String) {
+        pushToken = token
+        observeForeground()
+        // Before AffiliateoProvider: managerStarted comes back here.
+        guard env != nil else { return }
+        pushChanged()
+    }
+
+    /// The registration needs to know whether the chat is on for this app.
+    private func pushChanged() {
+        Task {
+            await refreshConfig(force: false)
+            syncPush()
+        }
+    }
+
+    /// Brings the server in line with this phone, one request at a time: a
+    /// phone to forget first (a sign-out, an opt-out), then the registration,
+    /// once each launch and when it changed (ChatRules.pushRegistrationDue).
+    func syncPush() {
+        guard env != nil else { return }
+        guard !pushBusy else {
+            pushAgain = true
+            return
+        }
+        pushBusy = true
+        Task {
+            await runPushSync()
+            pushBusy = false
+            if pushAgain {
+                pushAgain = false
+                syncPush()
+            }
+        }
+    }
+
+    private func runPushSync() async {
+        guard let env else { return }
+        let defaults = UserDefaults.standard
+        let appId = env.appId
+        // Opted out of tracking: the chat carries no device id from now on,
+        // so the server forgets this phone.
+        if env.optedOut, let saved = savedPush(appId) {
+            defaults.set(saved.token, forKey: ChatRules.pushForgetKey(appId))
+            defaults.removeObject(forKey: ChatRules.pushKey(appId))
+            // Opting in again registers the phone again.
+            pushAnswered = nil
+        }
+        // A phone to forget goes first, so it can never undo a registration
+        // made after it.
+        if let old = defaults.string(forKey: ChatRules.pushForgetKey(appId)) {
+            guard !pushForgetFailed, pushMayTry() else { return }
+            switch await sendPush("DELETE", ["app": appId, "token": old], env) {
+            case .ok, .notTaken:
+                if defaults.string(forKey: ChatRules.pushForgetKey(appId)) == old {
+                    defaults.removeObject(forKey: ChatRules.pushForgetKey(appId))
+                }
+            case .failed:
+                pushForgetFailed = true
+                return
+            case .noAnswer:
+                pushTriedAt = Date()
+                return
+            }
+        }
+        // After a sign-out: not before the next person has a thread.
+        if defaults.bool(forKey: ChatRules.pushHeldKey(appId)) {
+            guard storedToken(appId) != nil else { return }
+            defaults.removeObject(forKey: ChatRules.pushHeldKey(appId))
+        }
+        guard let device = ChatRules.pushDevice(
+            env: env,
+            config: config,
+            token: pushToken,
+            bundleId: Bundle.main.bundleIdentifier,
+            environment: Self.pushEnvironment,
+            language: Locale.preferredLanguages.first ?? "en"
+        ), ChatRules.pushRegistrationDue(answered: pushAnswered, next: device), pushMayTry()
+        else { return }
+        let signOuts = ChatSignOuts.current
+        let answer = await sendPush("POST", ChatRules.pushDeviceBody(device, visitorId: env.visitorId), env)
+        // A sign-out while this was on its way: forget() has the server
+        // forget the phone next, so nothing is kept here.
+        guard ChatSignOuts.current == signOuts else { return }
+        switch answer {
+        case .ok:
+            pushAnswered = device
+            pushTriedAt = nil
+            if let data = try? JSONEncoder().encode(device) { defaults.set(data, forKey: ChatRules.pushKey(appId)) }
+            log("push token registered (\(device.environment))")
+        case .notTaken:
+            // No such app, or its chat is off: this phone is not registered.
+            pushAnswered = device
+            defaults.removeObject(forKey: ChatRules.pushKey(appId))
+            log("the server did not take the push token")
+        case .failed:
+            pushAnswered = device
+            log("push token not registered (the server); the next launch tries again")
+        case .noAnswer:
+            pushTriedAt = Date()
+            log("push token not registered (network)")
+        }
+    }
+
+    /// Whether enough time has passed since a request got no answer.
+    private func pushMayTry() -> Bool {
+        guard let at = pushTriedAt else { return true }
+        let waited = Date().timeIntervalSince(at)
+        return waited < 0 || waited >= ChatRules.pushRetryAfter
+    }
+
+    /// POST or DELETE /api/live-chat/push-devices (ChatRules.pushAnswer).
+    /// No Authorization header: the phone is named by the app and its token.
+    private func sendPush(_ method: String, _ body: [String: Any], _ env: ChatRules.Env) async -> ChatRules.PushAnswer {
+        guard let url = ChatRules.pushDevicesURL(apiUrl: env.apiUrl),
+              let json = try? JSONSerialization.data(withJSONObject: body)
+        else { return .failed }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = json
+        guard let (data, response) = try? await URLSession.shared.data(for: request) else { return .noAnswer }
+        return ChatRules.pushAnswer(status: (response as? HTTPURLResponse)?.statusCode, body: data)
     }
 
     // MARK: Where to draw
@@ -674,6 +1111,9 @@ final class ChatBubbleView: UIView {
     /// (now or on an earlier launch); until then the bubble follows the corner.
     private var dragged: CGPoint?
     private var dragStart: CGPoint = .zero
+    /// True while the person drags the bubble: it does not wiggle then.
+    private(set) var isDragging = false
+    static let wiggleKey = "affiliateo-wiggle"
 
     init(
         appId: String,
@@ -910,6 +1350,21 @@ final class ChatBubbleView: UIView {
         )
     }
 
+    /// One short wiggle (4.17.0): a few small left and right turns that die
+    /// down (ChatRules.wiggleDegrees), about 0.6 s, then it rests. The red
+    /// number and the green dot are part of the bubble, so they move with it.
+    func wiggle() {
+        guard !isDragging, layer.animation(forKey: Self.wiggleKey) == nil else { return }
+        let turns = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        turns.values = ChatRules.wiggleDegrees.map { $0 * Double.pi / 180 }
+        turns.duration = ChatRules.wiggleDuration
+        turns.timingFunctions = Array(
+            repeating: CAMediaTimingFunction(name: .easeInEaseOut),
+            count: ChatRules.wiggleDegrees.count - 1
+        )
+        layer.add(turns, forKey: Self.wiggleKey)
+    }
+
     @objc private func tapped() {
         onTap()
     }
@@ -917,6 +1372,9 @@ final class ChatBubbleView: UIView {
     @objc private func handleDrag(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
         case .began:
+            // A wiggle stops under the finger and none starts during the drag.
+            isDragging = true
+            layer.removeAnimation(forKey: Self.wiggleKey)
             dragStart = currentOffset
             autoresizingMask = [.flexibleLeftMargin, .flexibleTopMargin]
         case .changed:
@@ -925,7 +1383,10 @@ final class ChatBubbleView: UIView {
             dragged = next
             move(to: next)
         case .ended, .cancelled:
+            isDragging = false
             saveOffset()
+        case .failed:
+            isDragging = false
         default:
             break
         }

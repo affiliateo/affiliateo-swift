@@ -37,6 +37,14 @@ enum ChatRules {
         let online: Bool
         /// The owner's corner, size and screens for the bubble.
         var bubble: Bubble = .standard
+        /// The Live Chat app's name (`app.name`): the title of its
+        /// notifications (4.17.0).
+        var appName: String? = nil
+        /// The owner's greeting, as the chat window shows it first (4.17.0).
+        var greeting: String? = nil
+        /// The greeting in other languages, by two-letter language, when the
+        /// server sends them (`greetings`).
+        var greetings: [String: String] = [:]
 
         static let off = Config(enabled: false, showBubble: false, online: false)
     }
@@ -63,6 +71,9 @@ enum ChatRules {
         /// The owner's circle color and the speech bubble's inside it, #rrggbb.
         var color = "#1754d8"
         var iconColor = "#ffffff"
+        /// Seconds between two wiggles of the bubble (4.17.0); 0 is off, and
+        /// so is a server from before the wiggle.
+        var wiggleSeconds = 0
 
         static let standard = Bubble()
     }
@@ -100,6 +111,17 @@ enum ChatRules {
     /// The server's last answer about the chat (4.15.0): the bubble shows from
     /// it at once on the next launch while a fresh one is asked for.
     static func configKey(_ appId: String) -> String { "affiliateo_chat_config_\(appId)" }
+    /// The greeting this install already sent as a notification (4.17.0):
+    /// its id, so the same greeting never goes out twice.
+    static func greetingNotifiedKey(_ appId: String) -> String { "affiliateo_chat_greeting_notified_\(appId)" }
+    /// What the server last confirmed about this phone's push token (4.17.0).
+    static func pushKey(_ appId: String) -> String { "affiliateo_chat_push_\(appId)" }
+    /// A push token the server has yet to forget (a sign-out or an opt-out
+    /// that could not reach it).
+    static func pushForgetKey(_ appId: String) -> String { "affiliateo_chat_push_forget_\(appId)" }
+    /// Set by a sign-out: the phone is not registered again until the next
+    /// person starts a thread of their own.
+    static func pushHeldKey(_ appId: String) -> String { "affiliateo_chat_push_held_\(appId)" }
 
     // MARK: The token
 
@@ -118,12 +140,25 @@ enum ChatRules {
         guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               json["enabled"] as? Bool == true
         else { return .off }
+        var greetings: [String: String] = [:]
+        for (language, text) in json["greetings"] as? [String: Any] ?? [:] {
+            if let text = nonEmpty(text) { greetings[String(language.lowercased().prefix(2))] = text }
+        }
         return Config(
             enabled: true,
             showBubble: json["show_bubble"] as? Bool == true,
             online: json["online"] as? Bool == true,
-            bubble: parseBubble(json["bubble"])
+            bubble: parseBubble(json["bubble"]),
+            appName: nonEmpty((json["app"] as? [String: Any])?["name"]),
+            greeting: nonEmpty(json["greeting"]),
+            greetings: greetings
         )
+    }
+
+    /// Text with something in it, trimmed; nil for anything else.
+    private static func nonEmpty(_ raw: Any?) -> String? {
+        guard let text = (raw as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        return text
     }
 
     /// The config's `bubble`, anything missing or odd read as the old fixed bubble.
@@ -144,6 +179,7 @@ enum ChatRules {
         if b["style"] as? String == "glass" { bubble.style = "glass" }
         if let color = b["color"] as? String, rgb(color) != nil { bubble.color = color }
         if let color = b["icon_color"] as? String, rgb(color) != nil { bubble.iconColor = color }
+        bubble.wiggleSeconds = wiggleSeconds(b["wiggle_seconds"])
         return bubble
     }
 
@@ -528,34 +564,315 @@ enum ChatRules {
         let close: String
         /// "Chat, {n} unread".
         let unreadPattern: String
+        /// A notification's line for a message with no text (4.17.0), the
+        /// same words the server's push uses.
+        let sentMessage: String
 
         func unread(_ count: Int) -> String {
             unreadPattern.replacingOccurrences(of: "{n}", with: String(count))
         }
 
         static let all: [String: ChatWords] = [
-            "en": ChatWords(chat: "Chat", close: "Close chat", unreadPattern: "Chat, {n} unread"),
-            "ar": ChatWords(chat: "الدردشة", close: "إغلاق الدردشة", unreadPattern: "الدردشة، {n} غير مقروءة"),
-            "de": ChatWords(chat: "Chat", close: "Chat schließen", unreadPattern: "Chat, {n} ungelesen"),
-            "es": ChatWords(chat: "Chat", close: "Cerrar chat", unreadPattern: "Chat, {n} sin leer"),
-            "fr": ChatWords(chat: "Chat", close: "Fermer le chat", unreadPattern: "Chat, {n} non lus"),
-            "hi": ChatWords(chat: "चैट", close: "चैट बंद करें", unreadPattern: "चैट, {n} अपठित"),
-            "it": ChatWords(chat: "Chat", close: "Chiudi chat", unreadPattern: "Chat, {n} non letti"),
-            "ja": ChatWords(chat: "チャット", close: "チャットを閉じる", unreadPattern: "チャット、未読 {n} 件"),
-            "ko": ChatWords(chat: "채팅", close: "채팅 닫기", unreadPattern: "채팅, 읽지 않음 {n}개"),
-            "nl": ChatWords(chat: "Chat", close: "Chat sluiten", unreadPattern: "Chat, {n} ongelezen"),
-            "pl": ChatWords(chat: "Czat", close: "Zamknij czat", unreadPattern: "Czat, nieprzeczytane: {n}"),
-            "pt": ChatWords(chat: "Chat", close: "Fechar chat", unreadPattern: "Chat, {n} não lidas"),
-            "ru": ChatWords(chat: "Чат", close: "Закрыть чат", unreadPattern: "Чат, непрочитанных: {n}"),
-            "tr": ChatWords(chat: "Sohbet", close: "Sohbeti kapat", unreadPattern: "Sohbet, {n} okunmamış"),
-            "vi": ChatWords(chat: "Trò chuyện", close: "Đóng trò chuyện", unreadPattern: "Trò chuyện, {n} chưa đọc"),
-            "zh": ChatWords(chat: "聊天", close: "关闭聊天", unreadPattern: "聊天，{n} 条未读"),
+            "en": ChatWords(chat: "Chat", close: "Close chat", unreadPattern: "Chat, {n} unread", sentMessage: "Sent you a message"),
+            "ar": ChatWords(chat: "الدردشة", close: "إغلاق الدردشة", unreadPattern: "الدردشة، {n} غير مقروءة", sentMessage: "أرسل لك رسالة"),
+            "de": ChatWords(chat: "Chat", close: "Chat schließen", unreadPattern: "Chat, {n} ungelesen", sentMessage: "Hat dir eine Nachricht gesendet"),
+            "es": ChatWords(chat: "Chat", close: "Cerrar chat", unreadPattern: "Chat, {n} sin leer", sentMessage: "Te envió un mensaje"),
+            "fr": ChatWords(chat: "Chat", close: "Fermer le chat", unreadPattern: "Chat, {n} non lus", sentMessage: "Vous a envoyé un message"),
+            "hi": ChatWords(chat: "चैट", close: "चैट बंद करें", unreadPattern: "चैट, {n} अपठित", sentMessage: "आपको एक संदेश भेजा"),
+            "it": ChatWords(chat: "Chat", close: "Chiudi chat", unreadPattern: "Chat, {n} non letti", sentMessage: "Ti ha inviato un messaggio"),
+            "ja": ChatWords(chat: "チャット", close: "チャットを閉じる", unreadPattern: "チャット、未読 {n} 件", sentMessage: "メッセージが届きました"),
+            "ko": ChatWords(chat: "채팅", close: "채팅 닫기", unreadPattern: "채팅, 읽지 않음 {n}개", sentMessage: "메시지를 보냈습니다"),
+            "nl": ChatWords(chat: "Chat", close: "Chat sluiten", unreadPattern: "Chat, {n} ongelezen", sentMessage: "Heeft je een bericht gestuurd"),
+            "pl": ChatWords(chat: "Czat", close: "Zamknij czat", unreadPattern: "Czat, nieprzeczytane: {n}", sentMessage: "Masz nową wiadomość"),
+            "pt": ChatWords(chat: "Chat", close: "Fechar chat", unreadPattern: "Chat, {n} não lidas", sentMessage: "Enviou uma mensagem para você"),
+            "ru": ChatWords(chat: "Чат", close: "Закрыть чат", unreadPattern: "Чат, непрочитанных: {n}", sentMessage: "Вам пришло сообщение"),
+            "tr": ChatWords(chat: "Sohbet", close: "Sohbeti kapat", unreadPattern: "Sohbet, {n} okunmamış", sentMessage: "Size bir mesaj gönderdi"),
+            "vi": ChatWords(chat: "Trò chuyện", close: "Đóng trò chuyện", unreadPattern: "Trò chuyện, {n} chưa đọc", sentMessage: "Đã gửi cho bạn một tin nhắn"),
+            "zh": ChatWords(chat: "聊天", close: "关闭聊天", unreadPattern: "聊天，{n} 条未读", sentMessage: "给你发了一条消息"),
         ]
 
         /// The words for a language tag ("pt-BR", "zh-Hans-CN"): its first two letters.
         static func forLanguage(_ tag: String) -> ChatWords {
             all[String(tag.lowercased().prefix(2))] ?? all["en"]!
         }
+    }
+
+    // MARK: The wiggle (4.17.0)
+
+    /// The shortest and the longest time between two wiggles, in seconds.
+    static let wiggleMinSeconds = 3
+    static let wiggleMaxSeconds = 3600
+    /// One wiggle lasts about this long.
+    static let wiggleDuration: TimeInterval = 0.6
+    /// One wiggle, in degrees, spread evenly over `wiggleDuration`: a few
+    /// small left and right turns that die down, then the bubble rests. The
+    /// same turns as the website's bubble and the other SDKs (KEEP IN STEP).
+    static let wiggleDegrees: [Double] = [0, -12, 10, -8, 6, -3, 0]
+
+    /// The config's `bubble.wiggle_seconds`: seconds between two wiggles,
+    /// 0 for off. A config without the field (a server from before the
+    /// wiggle), or with something that is not a number, a negative one or
+    /// NaN, does not wiggle; a positive number below 3 is 3.
+    static func wiggleSeconds(_ raw: Any?) -> Int {
+        guard let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return 0 }
+        let seconds = number.doubleValue
+        guard seconds.isFinite, seconds > 0 else { return 0 }
+        return min(max(Int(min(seconds, Double(wiggleMaxSeconds))), wiggleMinSeconds), wiggleMaxSeconds)
+    }
+
+    /// What `setChatBubbleWiggle(seconds:)` keeps: 0 (off) for nil, 0 or
+    /// less, otherwise the seconds, 3 at least.
+    static func wiggleOverride(_ seconds: Int?) -> Int {
+        guard let seconds, seconds > 0 else { return 0 }
+        return min(max(seconds, wiggleMinSeconds), wiggleMaxSeconds)
+    }
+
+    /// Seconds between two wiggles (0 for none): the app's own choice once
+    /// it made one with `setChatBubbleWiggle(seconds:)`, else the dashboard's.
+    static func wiggleEvery(override: Int?, config: Config?) -> Int {
+        override ?? config?.bubble.wiggleSeconds ?? 0
+    }
+
+    /// Whether the bubble wiggles now: only while it is on screen, the chat
+    /// is closed, the app is in front and nobody is dragging it, and never
+    /// with Reduce Motion on.
+    static func wigglesNow(every seconds: Int, bubbleShown: Bool, chatOpen: Bool, inFront: Bool, dragging: Bool, reduceMotion: Bool) -> Bool {
+        seconds > 0 && bubbleShown && !chatOpen && inFront && !dragging && !reduceMotion
+    }
+
+    // MARK: Notifications (4.17.0)
+
+    /// Where a chat notification keeps its own details in `userInfo`: in a
+    /// push from Affiliateo and in the notifications the SDK posts itself.
+    static let noticeKey = "affiliateo_chat"
+    /// Chat notifications stack together, as one conversation's do in Messages.
+    static let noticeThread = "affiliateo-chat"
+    /// A message is cut to about this many characters, as the server's push is.
+    static let noticeBodyLimit = 180
+
+    /// A chat notification's details.
+    struct Notice: Equatable {
+        var app: String?
+        var conversationId: String?
+        var messageId: String?
+        /// Set on the greeting's notification.
+        var greetingId: String?
+    }
+
+    /// The chat notification in a notification's `userInfo`, or nil when
+    /// the notification is not one of the chat's.
+    static func notice(_ userInfo: [AnyHashable: Any]) -> Notice? {
+        guard let raw = userInfo[noticeKey] as? [String: Any] else { return nil }
+        return Notice(
+            app: text(raw["app"]),
+            conversationId: text(raw["conversation_id"]),
+            messageId: text(raw["message_id"]),
+            greetingId: text(raw["greeting_id"])
+        )
+    }
+
+    /// The `userInfo` of a notification the SDK posts itself: the same shape
+    /// a push from Affiliateo has.
+    static func noticeInfo(_ notice: Notice) -> [String: Any] {
+        var inner: [String: Any] = [:]
+        if let app = notice.app { inner["app"] = app }
+        if let id = notice.conversationId { inner["conversation_id"] = id }
+        if let id = notice.messageId { inner["message_id"] = id }
+        if let id = notice.greetingId { inner["greeting_id"] = id }
+        return [noticeKey: inner]
+    }
+
+    /// How a notification that arrives while the app is open shows.
+    enum NoticeShow: Equatable {
+        /// Not one of the chat's: the app decides.
+        case notOurs
+        /// The chat is open on screen: the message is already in front of the person.
+        case quiet
+        /// A banner with its sound, kept in the list, like a message.
+        case banner
+    }
+
+    static func noticeShow(_ userInfo: [AnyHashable: Any], chatOpen: Bool) -> NoticeShow {
+        guard notice(userInfo) != nil else { return .notOurs }
+        return chatOpen ? .quiet : .banner
+    }
+
+    /// A notification's line for a message: its text, cut to about 180
+    /// characters. A message with no text says "Sent you a message" in the
+    /// person's language.
+    static func noticeBody(_ text: String?, language: String) -> String {
+        let clean = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return ChatWords.forLanguage(language).sentMessage }
+        guard clean.count > noticeBodyLimit else { return clean }
+        return String(clean.prefix(noticeBodyLimit - 1)).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+    }
+
+    /// The greeting as the chat window would show it to this person: their
+    /// language's version when the config carries one, else the main text.
+    static func greetingText(_ config: Config, language: String) -> String? {
+        config.greetings[String(language.lowercased().prefix(2))] ?? config.greeting
+    }
+
+    /// Whether the greeting goes out as a notification now: the app said
+    /// notifications are allowed, the greeting still counts as unread (the
+    /// same rule as the red 1: on, never seen, no thread yet), there are
+    /// words to show, the chat is closed, and this greeting has not gone
+    /// out on this install before.
+    static func greetingNoticeDue(allowed: Bool, config: Config?, pending: Bool, notifiedId: String?, chatOpen: Bool, language: String) -> Bool {
+        guard allowed, pending, !chatOpen, let config, config.enabled,
+              let id = config.bubble.greetingId, greetingText(config, language: language) != nil
+        else { return false }
+        return notifiedId != id
+    }
+
+    /// A team message as it arrives on the thread's socket.
+    struct TeamMessage: Equatable {
+        var id: String?
+        var conversationId: String?
+        var body: String
+    }
+
+    /// The team's message in a socket frame, or nil for any other frame.
+    static func teamMessage(_ frame: [String: Any]) -> TeamMessage? {
+        guard frame["kind"] as? String == "live_chat", frame["event"] as? String == "message",
+              let message = frame["message"] as? [String: Any], message["sender"] as? String == "team"
+        else { return nil }
+        return TeamMessage(id: text(message["id"]), conversationId: text(frame["conversation_id"]), body: message["body"] as? String ?? "")
+    }
+
+    /// Whether the SDK posts a notification of its own for a team message
+    /// that arrived on the socket: only while the app is in front with the
+    /// chat closed, and only when this install has no push token registered.
+    /// A registered phone gets Affiliateo's push for the same message, which
+    /// the app shows through `chatNotificationPresentation(for:)`.
+    static func postsLocalNotice(inFront: Bool, chatOpen: Bool, pushRegistered: Bool) -> Bool {
+        inFront && !chatOpen && !pushRegistered
+    }
+
+    /// An id as text, whether the JSON had it as text or as a number.
+    private static func text(_ raw: Any?) -> String? {
+        if let text = raw as? String { return text.isEmpty ? nil : text }
+        if let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() { return number.stringValue }
+        return nil
+    }
+
+    // MARK: The push token (4.17.0)
+
+    /// Where a phone is registered (POST) and forgotten (DELETE).
+    static func pushDevicesURL(apiUrl: String) -> URL? {
+        URL(string: "\(base(apiUrl))/api/live-chat/push-devices")
+    }
+
+    /// Apple's device token as the server takes it: lowercase hex.
+    static func pushToken(_ deviceToken: Data) -> String {
+        deviceToken.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// What the server keeps about this phone so a reply can reach it.
+    struct PushDevice: Equatable, Codable {
+        var app: String
+        var token: String
+        var bundleId: String
+        /// Apple's push service for this build: "sandbox" or "production".
+        var environment: String
+        /// The same device id the chat page sends, which the server matches
+        /// a thread to its phone by.
+        var deviceId: String
+        var userId: String?
+        var language: String
+    }
+
+    /// The phone to register, or nil while there is nothing to register: no
+    /// token from the app yet, the chat not (known to be) on for this app,
+    /// or the person opted out of tracking (the chat then carries no device
+    /// id, so no reply could find the phone).
+    static func pushDevice(env: Env, config: Config?, token: String?, bundleId: String?, environment: String, language: String) -> PushDevice? {
+        guard let token, !token.isEmpty, config?.enabled == true, !env.optedOut,
+              let deviceId = env.deviceId, !deviceId.isEmpty,
+              let bundleId, !bundleId.isEmpty
+        else { return nil }
+        return PushDevice(app: env.appId, token: token, bundleId: bundleId, environment: environment, deviceId: deviceId, userId: env.userId, language: language)
+    }
+
+    /// The JSON of POST /api/live-chat/push-devices. The visitor id goes
+    /// along when the SDK has it; it is a label, not what a phone is found by.
+    static func pushDeviceBody(_ device: PushDevice, visitorId: String?) -> [String: Any] {
+        var body: [String: Any] = [
+            "app": device.app,
+            "platform": "ios",
+            "token": device.token,
+            "bundle_id": device.bundleId,
+            "environment": device.environment,
+            "device_id": device.deviceId,
+            "language": device.language,
+        ]
+        if let visitorId, !visitorId.isEmpty { body["visitor_id"] = visitorId }
+        if let userId = device.userId, !userId.isEmpty { body["user_id"] = userId }
+        return body
+    }
+
+    /// A request that got no answer (the phone was offline) is not sent
+    /// again sooner than this.
+    static let pushRetryAfter: TimeInterval = 5 * 60
+
+    /// Whether the server needs to hear about this phone (again): once each
+    /// launch (the same token again switches a phone the server had dropped
+    /// back on), and when the token, the app, the language or the signed-in
+    /// user changes. `answered` is the registration the server has answered
+    /// in this launch, whatever it said: nothing is sent in a loop.
+    static func pushRegistrationDue(answered: PushDevice?, next: PushDevice) -> Bool {
+        answered != next
+    }
+
+    /// What became of a request to /api/live-chat/push-devices.
+    enum PushAnswer: Equatable {
+        /// `200 { "ok": true }`: stored (or forgotten).
+        case ok
+        /// `200 { "ok": false }`: an app the server does not know, one whose
+        /// chat is off, or something it cannot use. Nothing is stored.
+        case notTaken
+        /// Any other answer (429, 5xx, a server from before the route):
+        /// left until the next launch.
+        case failed
+        /// No answer at all (offline, a time out): tried again later.
+        case noAnswer
+    }
+
+    static func pushAnswer(status: Int?, body: Data?) -> PushAnswer {
+        guard let status else { return .noAnswer }
+        guard status == 200 else { return .failed }
+        return body.map(parseOk) == true ? .ok : .notTaken
+    }
+
+    /// The server's `{ "ok": true }`.
+    static func parseOk(_ data: Data) -> Bool {
+        ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["ok"] as? Bool == true
+    }
+
+    /// Apple's push service for this build, "sandbox" or "production", from
+    /// how it was signed: the Simulator and a build with a development
+    /// profile use the sandbox; a build with a distribution profile, and an
+    /// App Store or TestFlight build (which carries no profile), production.
+    /// A profile that cannot be read goes by the build's configuration.
+    static func apnsEnvironment(profile: Data?, simulator: Bool, debugBuild: Bool) -> String {
+        if simulator { return "sandbox" }
+        guard let profile else { return "production" }
+        switch apsEnvironment(inProfile: profile) {
+        case "development": return "sandbox"
+        case "production": return "production"
+        default: return debugBuild ? "sandbox" : "production"
+        }
+    }
+
+    /// The `aps-environment` entitlement inside a provisioning profile
+    /// (embedded.mobileprovision: a signed envelope around a property list).
+    static func apsEnvironment(inProfile data: Data) -> String? {
+        guard let start = data.range(of: Data("<?xml".utf8)),
+              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex),
+              let plist = try? PropertyListSerialization.propertyList(from: data.subdata(in: start.lowerBound..<end.upperBound), format: nil),
+              let entitlements = (plist as? [String: Any])?["Entitlements"] as? [String: Any]
+        else { return nil }
+        return entitlements["aps-environment"] as? String
     }
 
     // MARK: Helpers
@@ -593,6 +910,27 @@ enum ChatSignOuts {
     static func bump() {
         lock.lock()
         count += 1
+        lock.unlock()
+    }
+}
+
+/// Whether the chat is open on screen (4.17.0), readable from any thread:
+/// iOS asks how to show a notification on whatever thread the app's
+/// notification delegate runs on, and a reply needs no banner over the very
+/// chat it is in.
+enum ChatOnScreen {
+    private static let lock = NSLock()
+    private static var open = false
+
+    static var isOpen: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return open
+    }
+
+    static func set(_ value: Bool) {
+        lock.lock()
+        open = value
         lock.unlock()
     }
 }

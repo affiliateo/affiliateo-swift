@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -407,6 +408,11 @@ public final class AffiliateoManager: ObservableObject {
         isOptedOut = true
         UserDefaults.standard.set("true", forKey: AffiliateoManager.optOutKey)
         queue.clear()
+        // The chat carries no device id from now on, so the server forgets
+        // this phone's push token (4.17.0).
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.syncPush() }
+        #endif
     }
 
     /// Re-enable tracking after a previous optOut(). The auto session
@@ -417,6 +423,10 @@ public final class AffiliateoManager: ObservableObject {
         log("optIn")
         isOptedOut = false
         UserDefaults.standard.removeObject(forKey: AffiliateoManager.optOutKey)
+        // The push token the app handed over may be registered again (4.17.0).
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.syncPush() }
+        #endif
     }
 
     /// Force-drain the event queue immediately. Useful before a known
@@ -475,6 +485,12 @@ public final class AffiliateoManager: ObservableObject {
                 self.setEmailHash(hash)
                 self.freeAccessEpoch += 1
                 FreeAccessCache.clear()
+                // The phone's push registration names who is signed in
+                // (4.17.0): the server sends a reply only to the phone
+                // registered for the person the thread belongs to.
+                #if os(iOS)
+                LiveChat.shared.syncPush()
+                #endif
             } else if let hash, hash != self.emailHash {
                 self.setEmailHash(hash)
             }
@@ -1241,6 +1257,128 @@ public enum Affiliateo {
         return await LiveChat.shared.available()
         #else
         return false
+        #endif
+    }
+
+    // MARK: Live Chat: the wiggle and notifications (4.17.0)
+
+    /// Your own time between two wiggles of the chat bubble (4.17.0), over
+    /// the Wiggle setting in your dashboard's Live Chat settings. Any whole
+    /// number of seconds, 3 at least; `0` or `nil` switches the wiggle off.
+    /// Leave this call out to use the dashboard's choice.
+    ///
+    /// Every so many seconds the bubble does one short wiggle (about 0.6 s)
+    /// and rests: only while it is on screen, the chat is closed, the app is
+    /// in front and nobody is dragging it, and never with Reduce Motion on.
+    ///
+    /// ```swift
+    /// Affiliateo.setChatBubbleWiggle(seconds: 20)
+    /// ```
+    public static func setChatBubbleWiggle(seconds: Int?) {
+        #if os(iOS)
+        let every = ChatRules.wiggleOverride(seconds)
+        Task { @MainActor in LiveChat.shared.setWiggle(every) }
+        #endif
+    }
+
+    /// Hand over the app's push token (4.17.0), so a reply from your team
+    /// reaches the person as a notification, also while the app is closed.
+    /// Call it from your app delegate each time iOS gives you the token:
+    ///
+    /// ```swift
+    /// func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    ///     Affiliateo.setChatPushToken(deviceToken)
+    /// }
+    /// ```
+    ///
+    /// The SDK registers it with Affiliateo for this app (with the bundle
+    /// id, Apple's push service for this build, the device id and the
+    /// phone's language) and again when the token, the app or the language
+    /// changes. Nothing is sent while Live Chat is off for this app or the
+    /// person has opted out. `logout()` has the server forget the phone;
+    /// it is registered again once the next person starts a chat.
+    ///
+    /// Your app needs the Push Notifications capability and must call
+    /// `UIApplication.shared.registerForRemoteNotifications()` once
+    /// notifications are allowed.
+    public static func setChatPushToken(_ deviceToken: Data) {
+        let token = ChatRules.pushToken(deviceToken)
+        guard !token.isEmpty else { return }
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.setPushToken(token) }
+        #endif
+    }
+
+    /// How to show a notification that arrives while the app is open
+    /// (4.17.0). Call it from your notification delegate's `willPresent`:
+    ///
+    /// ```swift
+    /// func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    ///     completionHandler(Affiliateo.chatNotificationPresentation(for: notification) ?? [])
+    /// }
+    /// ```
+    ///
+    /// `nil` when the notification is not one of the chat's (your own rule
+    /// applies); empty while the chat is open on screen, where the message
+    /// is already in front of the person; otherwise a banner with its sound,
+    /// kept in the list, like a message. Safe to call from any thread.
+    public static func chatNotificationPresentation(for notification: UNNotification) -> UNNotificationPresentationOptions? {
+        #if os(iOS)
+        switch ChatRules.noticeShow(notification.request.content.userInfo, chatOpen: ChatOnScreen.isOpen) {
+        case .notOurs: return nil
+        case .quiet: return []
+        case .banner: return [.banner, .list, .sound]
+        }
+        #else
+        return nil
+        #endif
+    }
+
+    /// The person tapped a notification (4.17.0). Call it from your
+    /// notification delegate's `didReceive`. True when it was one of the
+    /// chat's: the chat then opens over whatever is on screen, as
+    /// `openChat()` does, and the app stays where it was. After a cold start
+    /// it opens as soon as the app has a screen to show it on.
+    ///
+    /// ```swift
+    /// func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+    ///     if !Affiliateo.handleChatNotification(response) {
+    ///         // one of your own notifications
+    ///     }
+    ///     completionHandler()
+    /// }
+    /// ```
+    @discardableResult
+    public static func handleChatNotification(_ response: UNNotificationResponse) -> Bool {
+        #if os(iOS)
+        guard ChatRules.notice(response.notification.request.content.userInfo) != nil else { return false }
+        // Swiped away: it was the chat's, and nothing opens.
+        if response.actionIdentifier != UNNotificationDismissActionIdentifier {
+            Task { @MainActor in LiveChat.shared.openFromNotification() }
+        }
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    /// Tell the SDK that notifications are allowed (4.17.0): right after the
+    /// person allows them, and at each launch when they already are. If your
+    /// greeting counts as an unread message and nobody on this phone has
+    /// seen it, it arrives as ONE notification now (your Live Chat app's
+    /// name, then the greeting), or as soon as the SDK has the chat's
+    /// settings. It never goes out twice for the same greeting, and tapping
+    /// it opens the chat. The SDK never asks for the permission itself.
+    ///
+    /// ```swift
+    /// if try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) {
+    ///     UIApplication.shared.registerForRemoteNotifications()
+    ///     Affiliateo.chatNotificationsAllowed()
+    /// }
+    /// ```
+    public static func chatNotificationsAllowed() {
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.notificationsAllowed() }
         #endif
     }
 

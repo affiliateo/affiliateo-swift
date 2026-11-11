@@ -1,9 +1,38 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.16.3
+// SDK version: 4.17.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.17.0: Live Chat replies arrive as notifications, like messages, and the
+//   chat bubble can wiggle.
+//   - The wiggle: every so many seconds the bubble does one short wiggle
+//     (about 0.6 s) and rests. The seconds come from the new Wiggle setting
+//     in the dashboard's Live Chat settings (config `bubble.wiggle_seconds`,
+//     0 = off; a server without the field never wiggles), or from the app's
+//     own code: Affiliateo.setChatBubbleWiggle(seconds:) (3 at least, 0 or
+//     nil = off). Only while the bubble is on screen, the chat is closed, the
+//     app is in front and nobody drags it; never with Reduce Motion.
+//   - Push: Affiliateo.setChatPushToken(_:) takes the APNs token from the
+//     app delegate and registers the phone for this app's chat
+//     (POST /api/live-chat/push-devices: bundle id, sandbox or production
+//     from how the build was signed, device id, language), once each launch
+//     and when the token, app, language or signed-in user changes. Not while
+//     the chat is off for the app or the person opted out. logout() has the
+//     server forget the phone until the next person starts a chat.
+//   - Affiliateo.chatNotificationPresentation(for:) for `willPresent`: nil
+//     for the app's own notifications, empty while the chat is open on
+//     screen, otherwise banner + list + sound.
+//   - Affiliateo.handleChatNotification(_:) for `didReceive`: true for a
+//     chat notification; the chat opens over whatever is on screen, also
+//     after a cold start.
+//   - While the app is in front with the chat closed, a reply on a phone
+//     WITHOUT a registered push token shows as a notification the SDK posts
+//     itself, with the same look.
+//   - Affiliateo.chatNotificationsAllowed(): a greeting nobody on the phone
+//     has seen arrives as ONE notification once notifications are allowed.
+//   - Opening the chat clears its notifications from the list.
+//   The SDK never asks for the notification permission itself.
 // 4.16.3: setChatBubblePadding(bottom:) takes any height (400 points at
 //   most before), so an app can lift the bubble up beside its content, for
 //   example between the steps of a paywall. The bubble still never goes
