@@ -662,6 +662,58 @@ public final class AffiliateoManager: ObservableObject {
         }
     }
 
+    /// Put an affiliate's code on this device (4.18.0): a coupon code without
+    /// the coupon. The buyer types the code in a box your app shows, you pass
+    /// it here, and that affiliate gets the sale. No discount, the App Store
+    /// is not involved, and nothing is matched by IP address for this buyer.
+    ///
+    /// The code is the one each affiliate already has, the end of their link.
+    /// A typed code beats a link match and is never overwritten by one; a
+    /// later code replaces an earlier one, so a typo can be fixed before
+    /// buying. Turn on "Affiliate codes" for the app in Affiliateo first.
+    ///
+    /// ```swift
+    /// let result = await Affiliateo.setAffiliateCode(codeField.text)
+    /// codeLabel.text = result.matched ? "Code applied" : "Code not found"
+    /// ```
+    ///
+    /// Never throws. Waits up to 10 seconds for this launch's first identify,
+    /// since the code goes on the device identify registered. Then buy as you
+    /// already do, with `state.appAccountToken`. Apps on RevenueCat need
+    /// nothing more: the `affiliateo_ref` attribute is refreshed here.
+    @MainActor
+    public func setAffiliateCode(_ code: String) async -> AffiliateoAffiliateCode {
+        guard let typed = AffiliateCodeRules.normalize(code) else {
+            log("setAffiliateCode: not a code")
+            return .refused(.invalid)
+        }
+        await waitForSignIn(seconds: 10)
+        // Nothing is sent for a person who opted out, and without a visitor
+        // there is no device on the server to put the code on.
+        guard !isOptedOut, let visitorId = state.visitorId else {
+            log("setAffiliateCode: not ready (no identify yet, or opted out)")
+            return .refused(.notReady)
+        }
+        let answer = await client.affiliateCode(campaignId: campaignId, deviceId: deviceId, code: typed)
+        if answer.matched, let refCode = answer.refCode {
+            state = AffiliateoState(
+                refCode: refCode,
+                isMatched: true,
+                isLoading: false,
+                visitorId: visitorId,
+                appAccountToken: state.appAccountToken
+            )
+            // RevenueCat reads the affiliate off this attribute at the sale.
+            setRevenueCatAttributes(visitorId: visitorId, refCode: refCode)
+        }
+        log("setAffiliateCode", [
+            "matched": answer.matched,
+            "ref": answer.refCode as Any,
+            "reason": answer.reason?.rawValue as Any,
+        ])
+        return answer
+    }
+
     /// Until this launch's first identify (with the sign-in sync after it)
     /// and the latest identify or logout have finished, or `seconds` passed.
     private func waitForSignIn(seconds: Double) async {
@@ -1110,6 +1162,20 @@ public enum Affiliateo {
             return FreeAccessCache.offlineAnswer(FreeAccessCache.load(), now: Date())
         }
         return await manager.freeAccess()
+    }
+
+    /// Put an affiliate's code on this device (4.18.0): the buyer typed it in
+    /// your app, and that affiliate gets the sale. Never throws. Before
+    /// `AffiliateoProvider` is up it answers `reason: .notReady`. See
+    /// `AffiliateoManager.setAffiliateCode` for the full doc.
+    ///
+    /// ```swift
+    /// let result = await Affiliateo.setAffiliateCode(codeField.text)
+    /// if result.matched { showCodeApplied() }
+    /// ```
+    public static func setAffiliateCode(_ code: String) async -> AffiliateoAffiliateCode {
+        guard let manager = AffiliateoManager.shared else { return .refused(.notReady) }
+        return await manager.setAffiliateCode(code)
     }
 
     /// Report the host app's RevenueCat App User ID so an app owner can grant

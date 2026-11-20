@@ -1,9 +1,20 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.17.0
+// SDK version: 4.18.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.18.0: affiliate codes, and a Mac says it is a Mac.
+//   - Affiliateo.setAffiliateCode(_:) puts an affiliate's code on this device:
+//     a coupon code without the coupon. The buyer types the code in a box the
+//     app shows, and that affiliate gets the sale, with no discount, no store
+//     involved and no match by IP address (POST /api/v1/mobile/affiliate-code:
+//     campaign_id, device_id, code). It answers matched + refCode, or a
+//     reason: notFound, invalid, off (the owner's switch), notReady (no
+//     identify yet, or opted out), failed. A typed code beats a link match.
+//     On RevenueCat apps the affiliateo_ref attribute is refreshed with it.
+//   - A Mac app reports os "macOS" and model "Mac" (it said "iOS" and
+//     "Unknown"), and a new Mac's device id starts "mac-".
 // 4.17.0: Live Chat replies arrive as notifications, like messages, and the
 //   chat bubble can wiggle.
 //   - The wiggle: every so many seconds the bubble does one short wiggle

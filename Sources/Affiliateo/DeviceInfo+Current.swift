@@ -7,6 +7,10 @@ extension DeviceInfo {
     /// Collects current device information automatically.
     static func current(appVersion: String? = nil) -> DeviceInfo {
         var model = "Unknown"
+        // A Mac app (4.18.0). It used to report "iOS" with an unknown model,
+        // so a Mac read as an iPhone in the dashboard and in the link match,
+        // which compares this with the operating system of the click.
+        var os = "iOS"
         var screenWidth = 0
         var screenHeight = 0
 
@@ -16,6 +20,10 @@ extension DeviceInfo {
         screenWidth = Int(screen.width)
         screenHeight = Int(screen.height)
         #endif
+        #if os(macOS)
+        model = "Mac"
+        os = "macOS"
+        #endif
 
         let version = appVersion
             ?? Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
@@ -23,7 +31,7 @@ extension DeviceInfo {
 
         return DeviceInfo(
             deviceModel: model,
-            os: "iOS",
+            os: os,
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             appVersion: version,
             screenWidth: screenWidth,

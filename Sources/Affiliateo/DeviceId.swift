@@ -20,7 +20,14 @@ func getStableDeviceId() -> String {
         return saved
     }
 
+    // A Mac has no IDFV, so every Mac app lands here. Named for what it is
+    // (4.18.0); an id saved by an older version keeps its "ios-" name, since
+    // changing it would make the same Mac a new device.
+    #if os(macOS)
+    let newId = "mac-\(UUID().uuidString)"
+    #else
     let newId = "ios-\(UUID().uuidString)"
+    #endif
     UserDefaults.standard.set(newId, forKey: key)
     return newId
 }

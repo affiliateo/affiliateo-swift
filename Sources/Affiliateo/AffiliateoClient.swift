@@ -170,6 +170,31 @@ final class AffiliateoClient {
         return answer
     }
 
+    /// A code the buyer typed in the app (4.18.0). POST
+    /// /api/v1/mobile/affiliate-code. Never throws: offline, or a reply that
+    /// is not one, is an answer too (`reason: .failed`), so the app can say
+    /// "try again" instead of catching.
+    func affiliateCode(campaignId: String, deviceId: String, code: String) async -> AffiliateoAffiliateCode {
+        let url = URL(string: "\(apiUrl)/api/v1/mobile/affiliate-code")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // The buyer is waiting beside a text field, not for a minute.
+        request.timeoutInterval = 10
+        guard let body = try? JSONSerialization.data(withJSONObject: [
+            "campaign_id": campaignId,
+            "device_id": deviceId,
+            "code": code,
+        ]) else { return .refused(.failed) }
+        request.httpBody = body
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let httpResponse = response as? HTTPURLResponse else {
+            return .refused(.failed)
+        }
+        return AffiliateCodeRules.parseReply(status: httpResponse.statusCode, data: data)
+    }
+
     /// Which products this phone should price today (4.13.0). POST
     /// /api/v1/mobile/store-prices with no prices: the app's store product
     /// ids, and whether a report is due (the server takes one a day).

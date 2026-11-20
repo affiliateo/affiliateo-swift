@@ -134,6 +134,32 @@ let result = try await product.purchase(options: options)
 
 It is nil only until the SDK's first identify succeeds. Signing out keeps it.
 
+## Affiliate codes (4.18.0)
+
+A coupon code without the coupon. The buyer types an affiliate's code in a box your app shows, and that affiliate gets the sale. There is no discount, the App Store is not involved, and nothing is matched by IP address for that buyer.
+
+The code is the one each affiliate already has: the end of their link. Turn on **Affiliate codes** for the app in Affiliateo once your app has the box.
+
+```swift
+let result = await Affiliateo.setAffiliateCode(codeField.text)
+
+if result.matched {
+    // Say "Code applied". result.refCode is the affiliate's code.
+} else {
+    // Say "Code not found". result.reason says why:
+    // .notFound, .invalid, .off, .notReady or .failed.
+}
+
+// Then buy as you already do, with affiliateo.state.appAccountToken.
+```
+
+- A typed code beats a link match and is never overwritten by one.
+- A later code replaces an earlier one, so a typo can be fixed before buying.
+- It never throws, and it waits up to 10 seconds for this launch's first identify.
+- Apps on RevenueCat need nothing more: the `affiliateo_ref` attribute is refreshed with it.
+
+To credit by code only, turn off **Match installs to link clicks** for the app in Affiliateo. Then no install is matched to a link click by IP address.
+
 ## Report purchases to your ad networks
 
 When you run app campaigns on Meta, TikTok or Snapchat through Affiliateo,
