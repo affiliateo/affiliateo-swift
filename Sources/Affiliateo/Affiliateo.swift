@@ -1053,6 +1053,10 @@ public final class AffiliateoManager: ObservableObject {
     /// What Live Chat (Chat.swift) needs to know about this install. The ids
     /// are labels for the business's inbox, and the chat page leaves them out
     /// while opted out.
+    /// The app id Live Chat keeps its phone-wide choices under (4.19.0);
+    /// never changes, so any thread may read it.
+    var chatAppId: String { campaignId }
+
     func chatEnv() -> ChatRules.Env {
         ChatRules.Env(
             appId: campaignId,
@@ -1230,6 +1234,10 @@ public enum Affiliateo {
     ///
     /// Nothing shows until the app calls this or `openChat()`, so the App
     /// Store reviewer sees every feature the app has. iPhone and iPad only.
+    ///
+    /// Once the person has hidden the bubble with its X (hold it for a
+    /// second, 4.19.0), this shows nothing on this phone until
+    /// `restoreChatBubble()`.
     public static func showChatBubble() {
         #if os(iOS)
         Task { @MainActor in LiveChat.shared.showBubble() }
@@ -1296,10 +1304,65 @@ public enum Affiliateo {
         #endif
     }
 
-    /// Take the chat bubble away again (4.14.0).
+    /// Take the chat bubble away again (4.14.0). It does not count as the
+    /// person hiding it (4.19.0): the next `showChatBubble()` shows it.
     public static func hideChatBubble() {
         #if os(iOS)
         Task { @MainActor in LiveChat.shared.hideBubble() }
+        #endif
+    }
+
+    // MARK: Live Chat: hold to hide (4.19.0)
+
+    /// Bring the chat bubble back after the person hid it themselves
+    /// (4.19.0). Call it when your own "Chat bubble" switch is turned on.
+    ///
+    /// People can hide the bubble: they hold it for a second until it
+    /// wiggles with a red X, then tap the X (with VoiceOver, the bubble's
+    /// "Hide chat bubble" action). A quick tap still opens the chat and a
+    /// finger that moves still drags it. This phone remembers the hide, so
+    /// from then on `showChatBubble()` shows nothing, also after the app is
+    /// opened again. This call forgets it and shows the bubble, as
+    /// `showChatBubble()` does. `openChat()` works either way.
+    ///
+    /// ```swift
+    /// Toggle("Chat bubble", isOn: $chatBubble)
+    ///     .onChange(of: chatBubble) { _, on in
+    ///         if on { Affiliateo.restoreChatBubble() } else { Affiliateo.hideChatBubble() }
+    ///     }
+    /// ```
+    public static func restoreChatBubble() {
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.restoreBubble() }
+        #endif
+    }
+
+    /// Whether the person hid the chat bubble with its X on this phone
+    /// (4.19.0), until `restoreChatBubble()`. False before
+    /// `AffiliateoProvider` has started.
+    public static var isChatBubbleHiddenByUser: Bool {
+        #if os(iOS)
+        guard let appId = AffiliateoManager.shared?.chatAppId else { return false }
+        return ChatRules.hiddenByUser(.standard, appId: appId)
+        #else
+        return false
+        #endif
+    }
+
+    /// Your own code for the person hiding the chat bubble with its X
+    /// (4.19.0), for example to turn your "Chat bubble" switch off and say
+    /// where to turn it back on. It runs once for each hide, on the main
+    /// thread, after the bubble has gone. Pass nil to stop.
+    ///
+    /// ```swift
+    /// Affiliateo.onChatBubbleHidden {
+    ///     settings.chatBubble = false
+    ///     toast = "Chat bubble hidden. Turn it back on in Settings."
+    /// }
+    /// ```
+    public static func onChatBubbleHidden(_ action: (@MainActor () -> Void)?) {
+        #if os(iOS)
+        Task { @MainActor in LiveChat.shared.setOnHidden(action) }
         #endif
     }
 

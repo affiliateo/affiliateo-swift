@@ -567,28 +567,30 @@ enum ChatRules {
         /// A notification's line for a message with no text (4.17.0), the
         /// same words the server's push uses.
         let sentMessage: String
+        /// The red X's name and the bubble's VoiceOver action (4.19.0).
+        let hide: String
 
         func unread(_ count: Int) -> String {
             unreadPattern.replacingOccurrences(of: "{n}", with: String(count))
         }
 
         static let all: [String: ChatWords] = [
-            "en": ChatWords(chat: "Chat", close: "Close chat", unreadPattern: "Chat, {n} unread", sentMessage: "Sent you a message"),
-            "ar": ChatWords(chat: "الدردشة", close: "إغلاق الدردشة", unreadPattern: "الدردشة، {n} غير مقروءة", sentMessage: "أرسل لك رسالة"),
-            "de": ChatWords(chat: "Chat", close: "Chat schließen", unreadPattern: "Chat, {n} ungelesen", sentMessage: "Hat dir eine Nachricht gesendet"),
-            "es": ChatWords(chat: "Chat", close: "Cerrar chat", unreadPattern: "Chat, {n} sin leer", sentMessage: "Te envió un mensaje"),
-            "fr": ChatWords(chat: "Chat", close: "Fermer le chat", unreadPattern: "Chat, {n} non lus", sentMessage: "Vous a envoyé un message"),
-            "hi": ChatWords(chat: "चैट", close: "चैट बंद करें", unreadPattern: "चैट, {n} अपठित", sentMessage: "आपको एक संदेश भेजा"),
-            "it": ChatWords(chat: "Chat", close: "Chiudi chat", unreadPattern: "Chat, {n} non letti", sentMessage: "Ti ha inviato un messaggio"),
-            "ja": ChatWords(chat: "チャット", close: "チャットを閉じる", unreadPattern: "チャット、未読 {n} 件", sentMessage: "メッセージが届きました"),
-            "ko": ChatWords(chat: "채팅", close: "채팅 닫기", unreadPattern: "채팅, 읽지 않음 {n}개", sentMessage: "메시지를 보냈습니다"),
-            "nl": ChatWords(chat: "Chat", close: "Chat sluiten", unreadPattern: "Chat, {n} ongelezen", sentMessage: "Heeft je een bericht gestuurd"),
-            "pl": ChatWords(chat: "Czat", close: "Zamknij czat", unreadPattern: "Czat, nieprzeczytane: {n}", sentMessage: "Masz nową wiadomość"),
-            "pt": ChatWords(chat: "Chat", close: "Fechar chat", unreadPattern: "Chat, {n} não lidas", sentMessage: "Enviou uma mensagem para você"),
-            "ru": ChatWords(chat: "Чат", close: "Закрыть чат", unreadPattern: "Чат, непрочитанных: {n}", sentMessage: "Вам пришло сообщение"),
-            "tr": ChatWords(chat: "Sohbet", close: "Sohbeti kapat", unreadPattern: "Sohbet, {n} okunmamış", sentMessage: "Size bir mesaj gönderdi"),
-            "vi": ChatWords(chat: "Trò chuyện", close: "Đóng trò chuyện", unreadPattern: "Trò chuyện, {n} chưa đọc", sentMessage: "Đã gửi cho bạn một tin nhắn"),
-            "zh": ChatWords(chat: "聊天", close: "关闭聊天", unreadPattern: "聊天，{n} 条未读", sentMessage: "给你发了一条消息"),
+            "en": ChatWords(chat: "Chat", close: "Close chat", unreadPattern: "Chat, {n} unread", sentMessage: "Sent you a message", hide: "Hide chat bubble"),
+            "ar": ChatWords(chat: "الدردشة", close: "إغلاق الدردشة", unreadPattern: "الدردشة، {n} غير مقروءة", sentMessage: "أرسل لك رسالة", hide: "إخفاء فقاعة الدردشة"),
+            "de": ChatWords(chat: "Chat", close: "Chat schließen", unreadPattern: "Chat, {n} ungelesen", sentMessage: "Hat dir eine Nachricht gesendet", hide: "Chat-Blase ausblenden"),
+            "es": ChatWords(chat: "Chat", close: "Cerrar chat", unreadPattern: "Chat, {n} sin leer", sentMessage: "Te envió un mensaje", hide: "Ocultar burbuja de chat"),
+            "fr": ChatWords(chat: "Chat", close: "Fermer le chat", unreadPattern: "Chat, {n} non lus", sentMessage: "Vous a envoyé un message", hide: "Masquer la bulle de chat"),
+            "hi": ChatWords(chat: "चैट", close: "चैट बंद करें", unreadPattern: "चैट, {n} अपठित", sentMessage: "आपको एक संदेश भेजा", hide: "चैट बबल छिपाएँ"),
+            "it": ChatWords(chat: "Chat", close: "Chiudi chat", unreadPattern: "Chat, {n} non letti", sentMessage: "Ti ha inviato un messaggio", hide: "Nascondi la bolla della chat"),
+            "ja": ChatWords(chat: "チャット", close: "チャットを閉じる", unreadPattern: "チャット、未読 {n} 件", sentMessage: "メッセージが届きました", hide: "チャットバブルを非表示"),
+            "ko": ChatWords(chat: "채팅", close: "채팅 닫기", unreadPattern: "채팅, 읽지 않음 {n}개", sentMessage: "메시지를 보냈습니다", hide: "채팅 버블 숨기기"),
+            "nl": ChatWords(chat: "Chat", close: "Chat sluiten", unreadPattern: "Chat, {n} ongelezen", sentMessage: "Heeft je een bericht gestuurd", hide: "Chatbubbel verbergen"),
+            "pl": ChatWords(chat: "Czat", close: "Zamknij czat", unreadPattern: "Czat, nieprzeczytane: {n}", sentMessage: "Masz nową wiadomość", hide: "Ukryj dymek czatu"),
+            "pt": ChatWords(chat: "Chat", close: "Fechar chat", unreadPattern: "Chat, {n} não lidas", sentMessage: "Enviou uma mensagem para você", hide: "Ocultar balão do chat"),
+            "ru": ChatWords(chat: "Чат", close: "Закрыть чат", unreadPattern: "Чат, непрочитанных: {n}", sentMessage: "Вам пришло сообщение", hide: "Скрыть значок чата"),
+            "tr": ChatWords(chat: "Sohbet", close: "Sohbeti kapat", unreadPattern: "Sohbet, {n} okunmamış", sentMessage: "Size bir mesaj gönderdi", hide: "Sohbet balonunu gizle"),
+            "vi": ChatWords(chat: "Trò chuyện", close: "Đóng trò chuyện", unreadPattern: "Trò chuyện, {n} chưa đọc", sentMessage: "Đã gửi cho bạn một tin nhắn", hide: "Ẩn bong bóng trò chuyện"),
+            "zh": ChatWords(chat: "聊天", close: "关闭聊天", unreadPattern: "聊天，{n} 条未读", sentMessage: "给你发了一条消息", hide: "隐藏聊天气泡"),
         ]
 
         /// The words for a language tag ("pt-BR", "zh-Hans-CN"): its first two letters.
@@ -662,6 +664,62 @@ enum ChatRules {
     /// with Reduce Motion on.
     static func wigglesNow(every seconds: Int, bubbleShown: Bool, chatOpen: Bool, inFront: Bool, dragging: Bool, reduceMotion: Bool) -> Bool {
         seconds > 0 && bubbleShown && !chatOpen && inFront && !dragging && !reduceMotion
+    }
+
+    // MARK: Hold to hide (4.19.0)
+    //
+    // The person holds the bubble still for a second: it wiggles the way the
+    // Affiliateo app's cards wiggle in edit mode (the iPhone home screen's
+    // jiggle) and a red X shows on its top-left corner. A tap on the X hides
+    // the bubble and the phone remembers it: showChatBubble() shows nothing
+    // from then on, until the app calls restoreChatBubble(). A tap anywhere
+    // else, or a few seconds without one, and the bubble is itself again.
+    // The website's bubble and the other SDKs do the same (KEEP IN STEP).
+
+    /// How long the finger stays still on the bubble before the X shows
+    /// (Nico, 2026-11-26: a second, as on the iPhone home screen).
+    static let holdToHide: TimeInterval = 1.0
+    /// How far the finger may move during that hold, in points. Past it the
+    /// touch is a drag, as before.
+    static let holdTravel: Double = 10
+    /// How long the X stays with nobody tapping anything.
+    static let hideModeLasts: TimeInterval = 5.0
+    /// The wiggle while the X shows: the Affiliateo app's cards in edit mode
+    /// rock 0.55 degrees each way, 0.13 s a swing, eased, back and forth. The
+    /// bubble keeps that rhythm and rocks 2.5 degrees, because a small round
+    /// bubble barely shows a smaller tilt.
+    static let jiggleDegrees: Double = 2.5
+    static let jiggleSwing: TimeInterval = 0.13
+    /// The X: a red rounded square (the red of the unread number) with a
+    /// white edge and a white cross, the size of the app's own X on its cards.
+    static let hideBadgeSize: Double = 18
+    static let hideBadgeCorner: Double = 6
+    /// Where the X's square starts, from the circle's top-left corner: a
+    /// little out, so it hangs over the circle's edge.
+    static let hideBadgeInset: Double = -3
+    /// How far past the square a tap still counts as the X, each side: an 18
+    /// point square with a 36 point target.
+    static let hideBadgeReach: Double = 9
+
+    /// Where the phone remembers that the person hid the bubble.
+    static func hiddenKey(_ appId: String) -> String { "affiliateo_chat_hidden_\(appId)" }
+
+    /// The X's square in the bubble's own points (the circle starts at 0, 0).
+    static func hideBadgeFrame() -> (x: Double, y: Double, size: Double) {
+        (hideBadgeInset, hideBadgeInset, hideBadgeSize)
+    }
+
+    /// Whether a tap at `x`, `y` (the bubble's own points) is on the X.
+    static func isOnHideBadge(x: Double, y: Double) -> Bool {
+        let badge = hideBadgeFrame()
+        let low = badge.x - hideBadgeReach
+        let high = badge.x + badge.size + hideBadgeReach
+        return x >= low && x <= high && y >= low && y <= high
+    }
+
+    /// Whether the person hid the bubble on this phone for this app.
+    static func hiddenByUser(_ defaults: UserDefaults, appId: String) -> Bool {
+        defaults.bool(forKey: hiddenKey(appId))
     }
 
     // MARK: Notifications (4.17.0)

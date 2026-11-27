@@ -1,5 +1,6 @@
 #if os(iOS)
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
 import UserNotifications
 import WebKit
 
@@ -34,6 +35,12 @@ import WebKit
 /// while the app is in front, and once the app says notifications are
 /// allowed (chatNotificationsAllowed) a greeting nobody has seen goes out as
 /// one too, once.
+///
+/// 4.19.0: hold to hide. Held still for a second, the bubble rocks with a red
+/// X on its corner (ChatBubbleView); a tap on the X hides it and this phone
+/// remembers that (ChatRules.hiddenKey), so showBubble() shows nothing until
+/// the app calls restoreBubble() (Affiliateo.restoreChatBubble()), and the
+/// app hears about it through Affiliateo.onChatBubbleHidden.
 ///
 /// The visitor's key to their thread (a token the server hands out with their
 /// first message) is kept in the Keychain, on this phone only (4.15.4, review
@@ -96,6 +103,13 @@ final class LiveChat {
     /// The seconds the running timer was started with; 0 while none runs.
     private var wiggleEvery = 0
 
+    // Hold to hide (4.19.0).
+    /// The app's code for the person hiding the bubble with its X.
+    private var onHidden: (() -> Void)?
+    /// restoreChatBubble() came before AffiliateoProvider: the phone's
+    /// remembered hide is forgotten once the app id is known.
+    private var restorePending = false
+
     // Notifications (4.17.0).
     /// Apple's push token for this install, hex, as the app handed it over.
     private var pushToken: String?
@@ -134,6 +148,17 @@ final class LiveChat {
         observeForeground()
         // Placed once AffiliateoProvider starts (managerStarted).
         guard let env else { return }
+        if restorePending {
+            restorePending = false
+            UserDefaults.standard.removeObject(forKey: ChatRules.hiddenKey(env.appId))
+        }
+        // The person hid it with its X (4.19.0): it stays hidden on this
+        // phone until the app calls restoreChatBubble().
+        if ChatRules.hiddenByUser(.standard, appId: env.appId) {
+            wantsBubble = false
+            log("the person hid the chat bubble; restoreChatBubble() brings it back")
+            return
+        }
         // At once from the last answer this phone kept, then checked with the
         // server (turned off there, it goes away again).
         if config == nil, let data = UserDefaults.standard.data(forKey: ChatRules.configKey(env.appId)) {
@@ -171,6 +196,35 @@ final class LiveChat {
         wantsBubble = false
         removeBubble()
         syncAppChannel()
+    }
+
+    // MARK: Hold to hide (4.19.0)
+
+    /// The app's own "Chat bubble" switch is on again: the phone forgets the
+    /// person's hide, and the bubble shows as with showBubble().
+    func restoreBubble() {
+        if let env {
+            UserDefaults.standard.removeObject(forKey: ChatRules.hiddenKey(env.appId))
+        } else {
+            restorePending = true
+        }
+        showBubble()
+    }
+
+    func setOnHidden(_ action: (() -> Void)?) {
+        onHidden = action
+    }
+
+    /// The person tapped the bubble's X (or VoiceOver's hide action): the
+    /// phone remembers it, the bubble goes as with hideBubble(), then the
+    /// app hears about it.
+    func personHid() {
+        if let env {
+            UserDefaults.standard.set(true, forKey: ChatRules.hiddenKey(env.appId))
+        }
+        log("the person hid the chat bubble")
+        hideBubble()
+        onHidden?()
     }
 
     func open() {
@@ -403,6 +457,8 @@ final class LiveChat {
 
     private func wentAway() {
         inFront = false
+        // No X waiting for the person's return (4.19.0).
+        bubble?.endHideMode()
         stopSocket()
         syncAppChannel()
         syncWiggle()
@@ -442,7 +498,14 @@ final class LiveChat {
             existing.removeFromSuperview()
             bubble = nil
         }
-        let view = bubble ?? ChatBubbleView(appId: env.appId, size: size, glass: glass, color: style.color, iconColor: style.iconColor) { LiveChat.shared.open() }
+        let view = bubble ?? ChatBubbleView(
+            appId: env.appId,
+            size: size,
+            glass: glass,
+            color: style.color,
+            iconColor: style.iconColor,
+            onHide: { LiveChat.shared.personHid() }
+        ) { LiveChat.shared.open() }
         bubble = view
         view.position = style.position
         view.bottomPadding = bottomPadding
@@ -720,7 +783,9 @@ final class LiveChat {
         controller.onRead = { LiveChat.shared.setUnread(0) }
         controller.onClosed = { LiveChat.shared.chatClosed() }
         screen = controller
-        // No wiggle while the chat slides up over the bubble.
+        // No wiggle while the chat slides up over the bubble, and no X
+        // (4.19.0: the app's own button opened it).
+        bubble?.endHideMode()
         syncWiggle()
         // They see the greeting now; a new one counts again.
         if let id = config?.bubble.greetingId { UserDefaults.standard.set(id, forKey: ChatRules.greetingKey(appId)) }
@@ -1085,8 +1150,17 @@ final class LiveChat {
 /// The floating chat bubble, on the app's pages: LiveChat.keepOnPages puts it
 /// just above the window's root view, so anything the app presents over its
 /// pages (a sheet, a full-screen cover, an alert) covers it (4.15.2). It
-/// starts in the owner's corner; press, hold and move to drag it, and it stays
+/// starts in the owner's corner; press and move to drag it, and it stays
 /// where it was left from then on.
+///
+/// HOLD TO HIDE (4.19.0). Held still for a second (ChatRules.holdToHide),
+/// the bubble does not open the chat: it rocks the way the Affiliateo app's
+/// cards rock in edit mode, and a red X shows on its top-left corner. A tap
+/// on the X hides it (`onHide`, which remembers it on the phone); a tap on
+/// the bubble or anywhere else, or five seconds without a tap, and it is
+/// itself again. A finger that moves before the second is up still drags
+/// it, and a quick tap still opens the chat. VoiceOver has the same hide as
+/// an action on the bubble.
 final class ChatBubbleView: UIView {
     static let margin: CGFloat = 20
 
@@ -1124,12 +1198,26 @@ final class ChatBubbleView: UIView {
     /// 0 while none plays.
     private var wiggleEnds: CFTimeInterval = 0
 
+    // Hold to hide (4.19.0).
+    static let jiggleKey = "affiliateo-jiggle"
+    /// The person tapped the X, or VoiceOver's hide action.
+    private let onHide: () -> Void
+    /// True while the bubble rocks with its X, after a hold.
+    private(set) var isHideMode = false
+    /// The red X on the top-left corner, shown in hide mode only.
+    let hideBadge: UIView
+    /// Watches the window for a touch anywhere else while the X shows.
+    private var hideWatcher: ChatHideWatcher?
+    /// Whether the green dot is due (update(unread:online:)); the X hides it.
+    private var dotDue = false
+
     init(
         appId: String,
         size: CGFloat,
         glass: Bool = false,
         color: String = "#1754d8",
         iconColor: String = "#ffffff",
+        onHide: @escaping () -> Void = {},
         onTap: @escaping () -> Void
     ) {
         self.appId = appId
@@ -1138,7 +1226,9 @@ final class ChatBubbleView: UIView {
         self.colors = (color, iconColor)
         self.tint = Self.uiColor(color) ?? Self.brand
         self.ink = Self.uiColor(iconColor) ?? .white
+        self.onHide = onHide
         self.onTap = onTap
+        self.hideBadge = Self.makeHideBadge(border: CGFloat(ChatRules.badgeMetrics(size: Double(size)).border))
         self.badge = ChatRules.badgeMetrics(size: Double(size))
         super.init(frame: CGRect(x: 0, y: 0, width: size, height: size))
 
@@ -1169,14 +1259,63 @@ final class ChatBubbleView: UIView {
         dot.isHidden = true
         addSubview(dot)
 
+        // Above the red number and the green dot.
+        hideBadge.isHidden = true
+        addSubview(hideBadge)
+
         dragged = savedOffset()
 
         isAccessibilityElement = true
         // In the person's language (4.15.2, review E14); update(unread:online:) adds the count.
         accessibilityLabel = words.chat
         accessibilityTraits = .button
-        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped)))
+        // Hide at once, without the hold (4.19.0).
+        accessibilityCustomActions = [
+            UIAccessibilityCustomAction(name: words.hide) { [weak self] _ in
+                self?.hideTapped()
+                return true
+            },
+        ]
+        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped(_:))))
         addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(handleDrag(_:))))
+        // The hold (4.19.0). UIKit lets one of the three have a touch: a
+        // finger that moves first is the drag's (the hold gives up past
+        // holdTravel), one that lifts first is the tap's, and one still
+        // there after the second is the hold's, so it neither opens the
+        // chat nor drags the bubble when it moves or lifts after that.
+        let hold = UILongPressGestureRecognizer(target: self, action: #selector(held(_:)))
+        hold.minimumPressDuration = ChatRules.holdToHide
+        hold.allowableMovement = CGFloat(ChatRules.holdTravel)
+        addGestureRecognizer(hold)
+    }
+
+    /// The red X: a rounded square in the unread number's red, with its
+    /// white edge and a white cross, hung over the circle's top-left edge.
+    /// It takes no touches itself: the bubble decides what a tap hit.
+    private static func makeHideBadge(border: CGFloat) -> UIView {
+        let frame = ChatRules.hideBadgeFrame()
+        let side = CGFloat(frame.size)
+        let badge = UIView(frame: CGRect(x: frame.x, y: frame.y, width: side, height: side))
+        badge.backgroundColor = UIColor(red: 0xEF / 255, green: 0x44 / 255, blue: 0x44 / 255, alpha: 1)
+        badge.layer.cornerRadius = CGFloat(ChatRules.hideBadgeCorner)
+        badge.layer.cornerCurve = .continuous
+        badge.layer.borderWidth = border
+        badge.layer.borderColor = UIColor.white.cgColor
+        badge.isUserInteractionEnabled = false
+        badge.isAccessibilityElement = false
+        let cross = UIBezierPath()
+        let inset = side / 3
+        cross.move(to: CGPoint(x: inset, y: inset))
+        cross.addLine(to: CGPoint(x: side - inset, y: side - inset))
+        cross.move(to: CGPoint(x: side - inset, y: inset))
+        cross.addLine(to: CGPoint(x: inset, y: side - inset))
+        let strokes = CAShapeLayer()
+        strokes.path = cross.cgPath
+        strokes.strokeColor = UIColor.white.cgColor
+        strokes.lineWidth = 2
+        strokes.lineCap = .round
+        badge.layer.addSublayer(strokes)
+        return badge
     }
 
     @available(*, unavailable)
@@ -1291,13 +1430,15 @@ final class ChatBubbleView: UIView {
             let width = max(height, ceil(pill.intrinsicContentSize.width) + 2 * CGFloat(badge.pillPadding))
             pill.frame = CGRect(x: size + offset - width, y: -offset, width: width, height: height)
             pill.isHidden = false
-            dot.isHidden = true
+            dotDue = false
             accessibilityLabel = words.unread(unread)
         } else {
             pill.isHidden = true
-            dot.isHidden = !online
+            dotDue = online
             accessibilityLabel = words.chat
         }
+        // The X sits where the green dot does (4.19.0).
+        dot.isHidden = !dotDue || isHideMode
         accessibilityValue = nil
     }
 
@@ -1372,7 +1513,8 @@ final class ChatBubbleView: UIView {
     /// finished animation there until it next tidies up, and asking the
     /// layer made every second wiggle of an idle app skip.
     func wiggle(now: CFTimeInterval = CACurrentMediaTime()) {
-        guard !isDragging, now >= wiggleEnds else { return }
+        // Never over the hide mode's own rocking (4.19.0).
+        guard !isDragging, !isHideMode, now >= wiggleEnds else { return }
         layer.removeAnimation(forKey: Self.wiggleKey)
         wiggleEnds = now + ChatRules.wiggleDuration
         let curve = ChatRules.wiggleCurve()
@@ -1399,14 +1541,107 @@ final class ChatBubbleView: UIView {
         wiggleEnds = 0
     }
 
-    @objc private func tapped() {
-        onTap()
+    @objc private func tapped(_ gesture: UITapGestureRecognizer) {
+        tap(at: gesture.location(in: self))
+    }
+
+    /// A tap at `point` (the bubble's own points). While the X shows, the X
+    /// hides the bubble and anywhere else on it only ends the hide mode: the
+    /// chat does not open. Otherwise it opens the chat, as always.
+    func tap(at point: CGPoint) {
+        guard isHideMode else {
+            onTap()
+            return
+        }
+        if ChatRules.isOnHideBadge(x: Double(point.x), y: Double(point.y)) {
+            hideTapped()
+        } else {
+            endHideMode()
+        }
+    }
+
+    @objc private func held(_ gesture: UILongPressGestureRecognizer) {
+        // Only the moment the second is up counts: moving or lifting the
+        // same finger after that does nothing.
+        if gesture.state == .began { startHideMode() }
+    }
+
+    // MARK: Hold to hide (4.19.0)
+
+    /// The X shows and the bubble rocks (not with Reduce Motion on), until
+    /// a tap, five seconds or the bubble leaving the screen end it.
+    func startHideMode(reduceMotion: Bool = UIAccessibility.isReduceMotionEnabled) {
+        guard !isHideMode, !isHidden else { return }
+        isHideMode = true
+        stopWiggle()
+        hideBadge.isHidden = false
+        dot.isHidden = true
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        if !reduceMotion {
+            let rock = CABasicAnimation(keyPath: "transform.rotation.z")
+            rock.fromValue = -ChatRules.jiggleDegrees * Double.pi / 180
+            rock.toValue = ChatRules.jiggleDegrees * Double.pi / 180
+            rock.duration = ChatRules.jiggleSwing
+            rock.autoreverses = true
+            rock.repeatCount = .infinity
+            rock.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            layer.add(rock, forKey: Self.jiggleKey)
+        }
+        if let window {
+            let watcher = ChatHideWatcher(bubble: self)
+            window.addGestureRecognizer(watcher)
+            hideWatcher = watcher
+        }
+        perform(#selector(hideModeTimedOut), with: nil, afterDelay: ChatRules.hideModeLasts)
+    }
+
+    /// Back to itself: level, no X, the green dot again when it is due.
+    func endHideMode() {
+        guard isHideMode else { return }
+        isHideMode = false
+        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(hideModeTimedOut), object: nil)
+        layer.removeAnimation(forKey: Self.jiggleKey)
+        hideBadge.isHidden = true
+        dot.isHidden = !dotDue
+        if let hideWatcher { hideWatcher.view?.removeGestureRecognizer(hideWatcher) }
+        hideWatcher = nil
+    }
+
+    @objc func hideModeTimedOut() {
+        endHideMode()
+    }
+
+    /// The X (or VoiceOver's hide action): the bubble goes, and LiveChat
+    /// remembers it and tells the app.
+    func hideTapped() {
+        endHideMode()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        onHide()
+    }
+
+    /// While the X shows, its target counts as the bubble's even where it
+    /// hangs past the circle.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        if isHideMode, ChatRules.isOnHideBadge(x: Double(point.x), y: Double(point.y)) { return true }
+        return super.point(inside: point, with: event)
+    }
+
+    /// Hidden (a screen rule, the chat opening) or off the window: no X left behind.
+    override var isHidden: Bool {
+        didSet { if isHidden { endHideMode() } }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil { endHideMode() }
     }
 
     @objc private func handleDrag(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
         case .began:
-            // A wiggle stops under the finger and none starts during the drag.
+            // A drag ends the hide mode (4.19.0), and a wiggle stops under
+            // the finger and none starts during the drag.
+            endHideMode()
             isDragging = true
             stopWiggle()
             dragStart = currentOffset
@@ -1443,6 +1678,33 @@ final class ChatBubbleView: UIView {
         else { return }
         UserDefaults.standard.set(raw, forKey: ChatRules.positionKey(appId))
     }
+}
+
+/// While the bubble shows its X (4.19.0): a touch anywhere in the window but
+/// on the bubble ends the hide mode. It only watches. It never recognizes
+/// anything and never cancels or holds back a touch, so the button, list or
+/// page under the finger still gets it, as if nothing were there.
+final class ChatHideWatcher: UIGestureRecognizer {
+    private weak var bubble: ChatBubbleView?
+
+    init(bubble: ChatBubbleView) {
+        self.bubble = bubble
+        super.init(target: nil, action: nil)
+        cancelsTouchesInView = false
+        delaysTouchesBegan = false
+        delaysTouchesEnded = false
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        if let bubble, touches.contains(where: { !bubble.point(inside: $0.location(in: bubble), with: event) }) {
+            bubble.endHideMode()
+        }
+        // Watched: this recognizer bows out of every touch at once.
+        state = .failed
+    }
+
+    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool { false }
 }
 
 // MARK: - The chat screen

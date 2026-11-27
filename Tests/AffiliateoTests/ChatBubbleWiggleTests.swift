@@ -73,13 +73,14 @@ final class ChatBubbleWiggleTests: XCTestCase {
         XCTAssertEqual(c2, [1, 1], "linear")
     }
 
-    /// The red number and the green dot are inside the bubble, so the turn
-    /// and the growing carry them along.
+    /// The red number, the green dot and the hold's red X (4.19.0) are
+    /// inside the bubble, so the turn and the growing carry them along.
     func testTheBadgesArePartOfTheBubble() {
         let view = bubble()
         view.update(unread: 2, online: true)
         let badges = view.subviews.filter { !($0 is UIVisualEffectView) }
-        XCTAssertEqual(badges.count, 2)
+        XCTAssertEqual(badges.count, 3)
+        XCTAssertTrue(badges.contains(view.hideBadge))
         XCTAssertTrue(badges.allSatisfy { $0.superview === view })
     }
 

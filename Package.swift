@@ -1,9 +1,22 @@
 // swift-tools-version: 5.9
 //
-// SDK version: 4.18.0
+// SDK version: 4.19.0
 // Swift Package Manager resolves the actual version from git tags, not
 // from this file. The marker above documents the current source state
 // so casual readers don't have to cross-reference the latest tag.
+// 4.19.0: hold to hide the chat bubble.
+//   - Held still for a second, the bubble does not open the chat: it rocks
+//     like the Affiliateo app's cards in edit mode (2.5 degrees, 0.13 s a
+//     swing; none with Reduce Motion) and a red X shows on its top-left
+//     corner. A tap on the X hides it; a tap anywhere else, or five seconds,
+//     ends it. A quick tap still opens the chat and a moving finger still
+//     drags it. VoiceOver: the bubble's "Hide chat bubble" action.
+//   - The phone remembers the hide (affiliateo_chat_hidden_<appId>):
+//     showChatBubble() shows nothing until Affiliateo.restoreChatBubble().
+//     Affiliateo.isChatBubbleHiddenByUser says whether it is hidden, and
+//     Affiliateo.onChatBubbleHidden { } runs the app's code after each hide
+//     (to turn its own switch off). hideChatBubble() and logout() leave the
+//     person's hide alone.
 // 4.18.0: affiliate codes, and a Mac says it is a Mac.
 //   - Affiliateo.setAffiliateCode(_:) puts an affiliate's code on this device:
 //     a coupon code without the coupon. The buyer types the code in a box the

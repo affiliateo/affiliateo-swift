@@ -349,4 +349,57 @@ final class ChatRulesTests: XCTestCase {
         XCTAssertEqual(ChatRules.ChatWords.forLanguage("sv-SE"), ChatRules.ChatWords.forLanguage("en"))
         XCTAssertEqual(ChatRules.ChatWords.forLanguage("").unread(2), "Chat, 2 unread")
     }
+
+    // MARK: 4.19.0, hold to hide
+
+    /// The same numbers in every SDK and on the website (KEEP IN STEP).
+    func testHoldToHideKeepsTheSameNumbersAsTheOtherSDKs() {
+        XCTAssertEqual(ChatRules.holdToHide, 1.0)
+        XCTAssertEqual(ChatRules.holdTravel, 10)
+        XCTAssertEqual(ChatRules.hideModeLasts, 5.0)
+        // The Affiliateo app's cards rock at 0.13 s a swing; the bubble keeps it.
+        XCTAssertEqual(ChatRules.jiggleSwing, 0.13)
+        XCTAssertEqual(ChatRules.jiggleDegrees, 2.5)
+        XCTAssertEqual(ChatRules.hideBadgeSize, 18)
+        XCTAssertEqual(ChatRules.hideBadgeCorner, 6)
+        XCTAssertEqual(ChatRules.hiddenKey("app_1"), "affiliateo_chat_hidden_app_1")
+    }
+
+    func testTheXSitsOnTheTopLeftWithATargetTwiceItsSize() {
+        let frame = ChatRules.hideBadgeFrame()
+        XCTAssertEqual(frame.x, -3)
+        XCTAssertEqual(frame.y, -3)
+        XCTAssertEqual(frame.size, 18)
+        // Its square and 9 points around it: -12 to 24 each way.
+        XCTAssertTrue(ChatRules.isOnHideBadge(x: 6, y: 6))
+        XCTAssertTrue(ChatRules.isOnHideBadge(x: -12, y: -12))
+        XCTAssertTrue(ChatRules.isOnHideBadge(x: 24, y: 24))
+        XCTAssertFalse(ChatRules.isOnHideBadge(x: 25, y: 6))
+        XCTAssertFalse(ChatRules.isOnHideBadge(x: 6, y: 25))
+        XCTAssertFalse(ChatRules.isOnHideBadge(x: -13, y: 0))
+        // The middle of a 48 point bubble is not the X.
+        XCTAssertFalse(ChatRules.isOnHideBadge(x: 24.5, y: 24.5))
+    }
+
+    func testTheXIsNamedInThePersonsLanguage() {
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("en-US").hide, "Hide chat bubble")
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("es-MX").hide, "Ocultar burbuja de chat")
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("de").hide, "Chat-Blase ausblenden")
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("ja-JP").hide, "チャットバブルを非表示")
+        XCTAssertEqual(ChatRules.ChatWords.forLanguage("sv-SE").hide, "Hide chat bubble")
+        for (language, words) in ChatRules.ChatWords.all {
+            XCTAssertFalse(words.hide.isEmpty, language)
+            XCTAssertFalse(words.hide.contains("\u{2014}"), language)
+        }
+    }
+
+    func testThePhoneRemembersTheHidePerApp() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "affiliateo-hidden-tests"))
+        defaults.removePersistentDomain(forName: "affiliateo-hidden-tests")
+        XCTAssertFalse(ChatRules.hiddenByUser(defaults, appId: "a"))
+        defaults.set(true, forKey: ChatRules.hiddenKey("a"))
+        XCTAssertTrue(ChatRules.hiddenByUser(defaults, appId: "a"))
+        XCTAssertFalse(ChatRules.hiddenByUser(defaults, appId: "b"))
+        defaults.removePersistentDomain(forName: "affiliateo-hidden-tests")
+    }
 }

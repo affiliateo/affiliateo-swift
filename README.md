@@ -300,6 +300,37 @@ Affiliateo.setChatBubbleWiggle(seconds: 20)
 - App Store privacy: chat messages are **Customer Support** data (under User
   Content).
 
+### Hold to hide (4.19.0)
+
+People can hide the bubble themselves. They hold it for a second: it wiggles
+like an app icon on the iPhone home screen (no wiggle with Reduce Motion on)
+and a small red X shows on its corner. A tap on the X hides it. A tap
+anywhere else, or five seconds without a tap, and it is back to normal. A
+quick tap still opens the chat, and a finger that moves still drags it.
+VoiceOver has it as the bubble's "Hide chat bubble" action.
+
+This phone remembers the hide: from then on `showChatBubble()` shows nothing
+for your app, also after a relaunch, until you call `restoreChatBubble()`.
+`openChat()` from your own button still works.
+
+```swift
+// Hear about it, for example to turn your own "Chat bubble" switch off
+Affiliateo.onChatBubbleHidden {
+    settings.chatBubble = false
+    toast = "Chat bubble hidden. Turn it back on in Settings."
+}
+
+// Your switch turned back on: forget the hide and show the bubble
+Affiliateo.restoreChatBubble()
+
+// Whether the person hid it on this phone
+let hidden = Affiliateo.isChatBubbleHiddenByUser
+```
+
+`hideChatBubble()` from your own code is not a hide by the person: the next
+`showChatBubble()` shows the bubble again. `logout()` keeps the person's hide,
+like the bubble's place, because it belongs to the phone.
+
 ### Replies as notifications (4.17.0)
 
 A reply from your team can reach the person as a notification, like a
